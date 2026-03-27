@@ -48,18 +48,13 @@ function LinksWidget({ config }: WidgetProps<LinksConfig>) {
   const links = (config.links as LinkItem[] | undefined) ?? DEFAULT_LINKS
 
   return (
-    <div className="widget-body" style={{
-      padding: '6px 12px 10px',
-      overflow: 'hidden',
-      height: '100%',
-      boxSizing: 'border-box',
-    }}>
+    <div className="widget-body" style={{ padding: '6px 12px 10px' }}>
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
         gridAutoRows: '1fr',
         gap: GAP,
-        height: '100%',
+        flex: 1,
       }}>
         {links.map((link, i) => (
           <a
@@ -121,6 +116,11 @@ export const linksWidget: WidgetDefinition<LinksConfig> = {
   defaultW:    4,
   defaultH:    4,
   minW:        2,
-  minH:        2,
+  minH:        1,
+  getMinSize(config) {
+    const n = ((config.links as LinkItem[] | undefined) ?? DEFAULT_LINKS).length
+    // At minW=2 columns, need ceil(n/2) rows. Min 1.
+    return { minW: 2, minH: Math.max(1, Math.ceil(n / 2)) }
+  },
   component:   LinksWidget,
 }
