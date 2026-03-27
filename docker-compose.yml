@@ -5,7 +5,7 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-    container_name: homelab-web
+    container_name: ctrlplane-web
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
@@ -13,21 +13,21 @@ services:
       api:
         condition: service_healthy
     networks:
-      - homelab
+      - ctrlplane
     labels:
-      - "com.homelab.service=web"
+      - "com.ctrlplane.service=web"
 
   # ── Backend API (Fastify) ────────────────────────────────────────────────────
   api:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: homelab-api
+    container_name: ctrlplane-api
     restart: unless-stopped
     environment:
       NODE_ENV:          production
       PORT:              "3001"
-      DATABASE_URL:      postgresql://${POSTGRES_USER:-homelab}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-homelab}
+      DATABASE_URL:      postgresql://${POSTGRES_USER:-ctrlplane}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-ctrlplane}
       REDIS_URL:         redis://redis:6379
       MASTER_SECRET:     ${MASTER_SECRET:?MASTER_SECRET must be set in .env}
       CORS_ORIGIN:       "*"
@@ -46,21 +46,21 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - homelab
+      - ctrlplane
     labels:
-      - "com.homelab.service=api"
+      - "com.ctrlplane.service=api"
 
   # ── Background worker (BullMQ — same image, different CMD) ──────────────────
   worker:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: homelab-worker
+    container_name: ctrlplane-worker
     restart: unless-stopped
     command: ["node", "dist/worker.js"]
     environment:
       NODE_ENV:      production
-      DATABASE_URL:  postgresql://${POSTGRES_USER:-homelab}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-homelab}
+      DATABASE_URL:  postgresql://${POSTGRES_USER:-ctrlplane}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-ctrlplane}
       REDIS_URL:     redis://redis:6379
       MASTER_SECRET: ${MASTER_SECRET:?MASTER_SECRET must be set in .env}
       LOG_LEVEL:     ${LOG_LEVEL:-info}
@@ -72,58 +72,58 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - homelab
+      - ctrlplane
     labels:
-      - "com.homelab.service=worker"
+      - "com.ctrlplane.service=worker"
 
   # ── PostgreSQL ────────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: homelab-postgres
+    container_name: ctrlplane-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     ${POSTGRES_USER:-homelab}
+      POSTGRES_USER:     ${POSTGRES_USER:-ctrlplane}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      POSTGRES_DB:       ${POSTGRES_DB:-homelab}
+      POSTGRES_DB:       ${POSTGRES_DB:-ctrlplane}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - homelab
+      - ctrlplane
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-homelab}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ctrlplane}"]
       interval: 10s
       timeout: 5s
       retries: 5
     labels:
-      - "com.homelab.service=postgres"
+      - "com.ctrlplane.service=postgres"
 
   # ── Redis ────────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: homelab-redis
+    container_name: ctrlplane-redis
     restart: unless-stopped
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis-data:/data
     networks:
-      - homelab
+      - ctrlplane
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
     labels:
-      - "com.homelab.service=redis"
+      - "com.ctrlplane.service=redis"
 
 networks:
-  homelab:
-    name: homelab-network
+  ctrlplane:
+    name: ctrlplane-network
     driver: bridge
 
 volumes:
   api-data:
-    name: homelab-api-data
+    name: ctrlplane-api-data
   postgres-data:
-    name: homelab-postgres-data
+    name: ctrlplane-postgres-data
   redis-data:
-    name: homelab-redis-data
+    name: ctrlplane-redis-data

@@ -1,5 +1,5 @@
 /**
- * ControlPlane Background Worker
+ * ctrlPlane Background Worker
  * Handles scheduled integration polling, alert evaluation, and notification dispatch.
  * Powered by BullMQ (Redis-backed job queue).
  */
@@ -249,7 +249,7 @@ export async function unscheduleIntegration(integrationId: string): Promise<void
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 async function bootstrap(): Promise<void> {
-  console.log('🔧  ControlPlane worker starting...')
+  console.log('🔧  ctrlPlane worker starting...')
   console.log('   Redis:', ENV.REDIS_URL)
   console.log('   DB:   ', ENV.DATABASE_URL ? '[set]' : '[not set]')
 

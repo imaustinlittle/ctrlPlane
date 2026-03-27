@@ -75,7 +75,7 @@ Open the side panel → Integrations → Add integration. Supported types:
 | `homeassistant` | Home Assistant REST API |
 | `pihole` | Pi-hole API |
 
-Credentials are stored in `/data/integrations.json` on the `homelab-api-data` Docker volume — never leaves your server.
+Credentials are stored encrypted in PostgreSQL on the `ctrlplane-postgres-data` Docker volume — never leaves your server.
 
 In a widget, consume an integration:
 
@@ -88,11 +88,11 @@ if (!configured) return <NotConfigured name="Docker" />
 
 ## Persistence
 
-Dashboard state (layouts, widget configs, theme) is saved to `/data/state.json` on the `homelab-api-data` volume. It survives container rebuilds. **Never run `docker compose down -v`** unless you want to wipe your saved layout.
+Dashboard state (layouts, widget configs, theme) is saved to `/data/state.json` on the `ctrlplane-api-data` volume. It survives container rebuilds. **Never run `docker compose down -v`** unless you want to wipe your saved layout.
 
 To back up your state:
 ```bash
-docker cp homelab-api:/data/state.json ./ctrlplane-backup.json
+docker cp ctrlplane-api:/data/state.json ./ctrlplane-backup.json
 ```
 
 To reset to defaults:

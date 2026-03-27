@@ -15,7 +15,7 @@ FROM nginx:1.27-alpine AS runner
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copy custom nginx config
-COPY docker/nginx.conf /etc/nginx/conf.d/homelab.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/ctrlplane.conf
 
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
