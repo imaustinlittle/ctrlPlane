@@ -22,9 +22,7 @@ const DEFAULT_LINKS: LinkItem[] = [
   { name: 'Sonarr',     url: '#',                    emoji: '📡' },
 ]
 
-const CELL_W = 90
-const CELL_H = 76
-const GAP    = 6
+const GAP = 6
 
 function isImageUrl(s: string): boolean {
   return /^https?:\/\/|^data:|^\//.test(s.trim())
@@ -52,15 +50,16 @@ function LinksWidget({ config }: WidgetProps<LinksConfig>) {
   return (
     <div className="widget-body" style={{
       padding: '6px 12px 10px',
-      // Fill widget height — user controls size by resizing the widget
       overflow: 'hidden',
+      height: '100%',
+      boxSizing: 'border-box',
     }}>
       <div style={{
         display: 'grid',
-        // Fixed cell width — columns snap to fit, leftover space goes to gaps
-        gridTemplateColumns: `repeat(auto-fill, ${CELL_W}px)`,
+        gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+        gridAutoRows: '1fr',
         gap: GAP,
-        alignContent: 'start',
+        height: '100%',
       }}>
         {links.map((link, i) => (
           <a
@@ -69,7 +68,6 @@ function LinksWidget({ config }: WidgetProps<LinksConfig>) {
             target={link.url === '#' ? undefined : '_blank'}
             rel="noopener noreferrer"
             style={{
-              height: CELL_H,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
