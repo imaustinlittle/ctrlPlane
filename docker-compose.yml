@@ -1,0 +1,129 @@
+services:
+
+  # ── Frontend (Nginx + built React app) ──────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: homelab-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - homelab
+    labels:
+      - "com.homelab.service=web"
+
+  # ── Backend API (Fastify) ────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: homelab-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV:          production
+      PORT:              "3001"
+      DATABASE_URL:      postgresql://${POSTGRES_USER:-homelab}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-homelab}
+      REDIS_URL:         redis://redis:6379
+      MASTER_SECRET:     ${MASTER_SECRET:?MASTER_SECRET must be set in .env}
+      CORS_ORIGIN:       "*"
+      LOG_LEVEL:         ${LOG_LEVEL:-info}
+    volumes:
+      - api-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3001/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - homelab
+    labels:
+      - "com.homelab.service=api"
+
+  # ── Background worker (BullMQ — same image, different CMD) ──────────────────
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: homelab-worker
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    environment:
+      NODE_ENV:      production
+      DATABASE_URL:  postgresql://${POSTGRES_USER:-homelab}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-homelab}
+      REDIS_URL:     redis://redis:6379
+      MASTER_SECRET: ${MASTER_SECRET:?MASTER_SECRET must be set in .env}
+      LOG_LEVEL:     ${LOG_LEVEL:-info}
+    volumes:
+      - api-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - homelab
+    labels:
+      - "com.homelab.service=worker"
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: homelab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-homelab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB:       ${POSTGRES_DB:-homelab}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-homelab}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.homelab.service=postgres"
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: homelab-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks:
+      - homelab
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    labels:
+      - "com.homelab.service=redis"
+
+networks:
+  homelab:
+    name: homelab-network
+    driver: bridge
+
+volumes:
+  api-data:
+    name: homelab-api-data
+  postgres-data:
+    name: homelab-postgres-data
+  redis-data:
+    name: homelab-redis-data
