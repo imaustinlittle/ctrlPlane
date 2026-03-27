@@ -27,7 +27,7 @@ services:
     environment:
       NODE_ENV:          production
       PORT:              "3001"
-      DATABASE_URL:      postgresql://${POSTGRES_USER:-ctrlplane}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-ctrlplane}
+      DATABASE_URL:      postgresql://${POSTGRES_USER:-ctrlPlane}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-ctrlPlane}
       REDIS_URL:         redis://redis:6379
       MASTER_SECRET:     ${MASTER_SECRET:?MASTER_SECRET must be set in .env}
       CORS_ORIGIN:       "*"
@@ -60,7 +60,7 @@ services:
     command: ["node", "dist/worker.js"]
     environment:
       NODE_ENV:      production
-      DATABASE_URL:  postgresql://${POSTGRES_USER:-ctrlplane}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-ctrlplane}
+      DATABASE_URL:  postgresql://${POSTGRES_USER:-ctrlPlane}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-ctrlPlane}
       REDIS_URL:     redis://redis:6379
       MASTER_SECRET: ${MASTER_SECRET:?MASTER_SECRET must be set in .env}
       LOG_LEVEL:     ${LOG_LEVEL:-info}
@@ -82,15 +82,15 @@ services:
     container_name: ctrlplane-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     ${POSTGRES_USER:-ctrlplane}
+      POSTGRES_USER:     ${POSTGRES_USER:-ctrlPlane}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      POSTGRES_DB:       ${POSTGRES_DB:-ctrlplane}
+      POSTGRES_DB:       ${POSTGRES_DB:-ctrlPlane}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - ctrlplane
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ctrlplane}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ctrlPlane}"]
       interval: 10s
       timeout: 5s
       retries: 5
