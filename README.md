@@ -1,112 +1,90 @@
-# ctrlPlane
+<h1 align="center">
+  <code>ctrl</code>Plane
+</h1>
 
-A self-hosted homelab dashboard. Drop widgets in, connect your services, see everything at a glance.
+<p align="center">
+  A self-hosted homelab dashboard. Drop in widgets, connect your services, and see everything at a glance — all from your own server.
+</p>
 
-## Stack
+<p align="center">
+  <a href="https://github.com/imaustinlittle/ctrlPlane/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"/></a>
+  &nbsp;
+  <img alt="Docker" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white"/>
+  &nbsp;
+  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white"/>
+</p>
 
-- **Frontend** — React 18 + TypeScript + Vite, Zustand, TailwindCSS, react-grid-layout
-- **API** — Fastify 4 + TypeScript
-- **Storage** — PostgreSQL + Redis (future), JSON file persistence on a Docker volume (current)
-- **Deployment** — Docker Compose
+---
 
-## Quick start
+## What is ctrlPlane?
+
+ctrlPlane is a drag-and-drop homelab dashboard you run on your own server. Connect it to your existing services — Proxmox, Docker, Home Assistant, Pi-hole — and pull their live data into resizable widgets arranged exactly how you want them. Your layout, your data, your server.
+
+## Features
+
+- **Drag-and-drop layout** — resize and rearrange widgets freely. Changes save automatically.
+- **Live service data** — pull real metrics from Proxmox, Docker, Home Assistant, Pi-hole, and more.
+- **Encrypted credentials** — integration secrets are AES-256-GCM encrypted at rest. They never leave your server.
+- **Alerts & notifications** — define threshold rules on your data; get notified via Discord, ntfy, or a custom webhook.
+- **Quick Links** — a customizable bookmark grid for all your self-hosted apps.
+- **Multiple pages** — organize widgets across tabbed pages for a clean layout.
+- **Themes** — switch accent colors to match your setup.
+- **Self-contained** — ships as a single `docker compose up`. No cloud, no accounts, no telemetry.
+
+## Quick Start
 
 ```bash
+git clone https://github.com/imaustinlittle/ctrlPlane.git
+cd ctrlPlane
+
 cp .env.example .env
-# Edit .env — set MASTER_SECRET at minimum
+# Open .env and set MASTER_SECRET (required — generate with: openssl rand -hex 32)
 
 docker compose up -d
 ```
 
-Open `http://your-server:8080`.
+Open **http://your-server:8080** and start building your dashboard.
 
-## Architecture
+## Connecting Services
 
-```
-apps/
-  web/          # React frontend (Vite)
-    src/
-      components/     # UI components (Topbar, SidePanel, WidgetCard, Toast)
-      components/panels/  # Modal/pane UIs (Config, TabManager, Integrations, Widgets, Settings)
-      hooks/          # useIntegration, useMockData
-      store/          # Zustand store + API persistence layer
-      types/          # Shared TypeScript types
-      widgets/        # Widget library — each widget is a self-contained folder
-  api/          # Fastify backend
-    src/
-      routes/         # state, integrations, dashboards, widgets, alerts...
-      db/             # Drizzle schema (PostgreSQL — future)
-      integrations/   # Service adapters (Proxmox, HA, Docker...)
-```
+Open the side panel → **Integrations** → **Add integration**. Enter your service URL and credentials — ctrlPlane encrypts and stores them, then polls the service on a background schedule.
 
-## Adding a widget
+| Integration | Connects to |
+|-------------|-------------|
+| `proxmox` | Proxmox VE — node stats, VM/CT list |
+| `docker` | Docker TCP API — container status & stats |
+| `homeassistant` | Home Assistant REST API — entity states |
+| `pihole` | Pi-hole API — query stats & blocking status |
 
-Create a folder in `apps/web/src/widgets/<your-widget>/` with an `index.tsx` that exports a `WidgetDefinition`:
+## Alerts
 
-```typescript
-import type { WidgetDefinition, WidgetProps } from '../../types'
+Set up threshold rules in the side panel → **Alerts**. When a rule fires (e.g. CPU > 90%), ctrlPlane logs the event and can notify you through:
 
-function MyWidget({ config }: WidgetProps<MyConfig>) {
-  return <div className="widget-body">...</div>
-}
+- **Discord** — webhook message
+- **ntfy** — push notification (self-hosted or ntfy.sh)
+- **Webhook** — POST to any URL
 
-export const myWidget: WidgetDefinition<MyConfig> = {
-  type:        'my-widget',
-  displayName: 'My Widget',
-  description: 'What it does',
-  icon:        '🔧',
-  category:    'general',
-  defaultW: 3, defaultH: 3,
-  minW: 2,     minH: 2,
-  component:   MyWidget,
-}
-```
+## Your Data Stays Yours
 
-The widget auto-discovers via `import.meta.glob` — no registration needed.
+Dashboard layout and widget config are saved to a Docker volume (`ctrlplane-api-data`) and survive container rebuilds.
 
-## Connecting real data
-
-Open the side panel → Integrations → Add integration. Supported types:
-
-| Type | What it connects to |
-|------|---------------------|
-| `proxmox` | Proxmox VE API |
-| `docker` | Docker TCP API |
-| `homeassistant` | Home Assistant REST API |
-| `pihole` | Pi-hole API |
-
-Credentials are stored encrypted in PostgreSQL on the `ctrlplane-postgres-data` Docker volume — never leaves your server.
-
-In a widget, consume an integration:
-
-```typescript
-import { useIntegration, NotConfigured } from '../../hooks/useIntegration'
-
-const { data, loading, error, configured } = useIntegration('docker/containers', { refreshMs: 5000 })
-if (!configured) return <NotConfigured name="Docker" />
-```
-
-## Persistence
-
-Dashboard state (layouts, widget configs, theme) is saved to `/data/state.json` on the `ctrlplane-api-data` volume. It survives container rebuilds. **Never run `docker compose down -v`** unless you want to wipe your saved layout.
-
-To back up your state:
 ```bash
+# Back up your layout
 docker cp ctrlplane-api:/data/state.json ./ctrlplane-backup.json
+
+# Restore
+docker cp ./ctrlplane-backup.json ctrlplane-api:/data/state.json
 ```
 
-To reset to defaults:
-```bash
-curl -X DELETE http://localhost:8080/api/state
-```
+> **Never run `docker compose down -v`** unless you want to wipe your saved layout and integration credentials.
 
-## Environment variables
+## Configuration
 
-See `.env.example` for all options. Required:
+All options are in `.env.example`. The only required variable is:
 
 | Variable | Description |
 |----------|-------------|
-| `MASTER_SECRET` | Secret key for signing tokens |
+| `MASTER_SECRET` | 32+ character secret used to encrypt integration credentials |
 
 ## License
 
