@@ -6,8 +6,33 @@ function statusLabel(s: ContainerInfo['status']) {
   return s === 'running' ? 'running' : s === 'exited' ? 'exited' : s === 'paused' ? 'paused' : 'stopped'
 }
 
-function ContainersWidget(_props: WidgetProps) {
+const skeletonRow = (key: number) => (
+  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--surface2)', flexShrink: 0 }} />
+    <div style={{ flex: 1, height: 11, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+    <div style={{ width: 48, height: 11, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+  </div>
+)
+
+function ContainersWidget({ isLoading, error }: WidgetProps) {
   const containers = useContainers()
+
+  if (isLoading) {
+    return (
+      <div className="widget-body" style={{ padding: '6px 14px 12px' }}>
+        {[0, 1, 2, 3, 4].map(skeletonRow)}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
+        <span style={{ fontSize: 18 }}>🐳</span>
+        <span>{error}</span>
+      </div>
+    )
+  }
 
   const running = containers.filter(c => c.status === 'running').length
   const total   = containers.length

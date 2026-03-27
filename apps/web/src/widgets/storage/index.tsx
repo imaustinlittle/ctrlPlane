@@ -6,8 +6,30 @@ function fmt(gb: number): string {
   return `${gb.toFixed(0)} GB`
 }
 
-function StorageWidget(_props: WidgetProps) {
+function StorageWidget({ isLoading, error }: WidgetProps) {
   const mounts = useStorage()
+
+  if (isLoading) {
+    return (
+      <div className="widget-body" style={{ paddingTop: 10, gap: 10, display: 'flex', flexDirection: 'column' }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ width: 80, height: 11, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div style={{ height: 6, borderRadius: 3, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
+        <span style={{ fontSize: 18 }}>💾</span>
+        <span>{error}</span>
+      </div>
+    )
+  }
 
   return (
     <div className="widget-body" style={{ paddingTop: 10, gap: 10, display: 'flex', flexDirection: 'column' }}>

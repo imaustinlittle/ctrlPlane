@@ -1,10 +1,45 @@
 import type { FastifyInstance } from 'fastify'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { z } from 'zod'
+import { ENV } from '../lib/env.js'
 
-// Persist to a file on a Docker volume — survives container rebuilds
-const DATA_DIR   = process.env.DATA_DIR ?? '/data'
+const DATA_DIR   = ENV.DATA_DIR
 const STATE_FILE = path.join(DATA_DIR, 'state.json')
+
+// Zod schema — permissive enough to not break on future widget additions,
+// strict enough to catch corrupted state before it reaches the store.
+const WidgetLayoutSchema = z.object({
+  i: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+}).passthrough()
+
+const WidgetInstanceSchema = z.object({
+  id:   z.string(),
+  type: z.string(),
+}).passthrough()
+
+const DashboardPageSchema = z.object({
+  id:      z.string(),
+  name:    z.string(),
+  icon:    z.string().optional(),
+  layout:  z.array(WidgetLayoutSchema).default([]),
+  widgets: z.array(WidgetInstanceSchema).default([]),
+}).passthrough()
+
+const ThemeSchema = z.object({
+  name:   z.string(),
+  accent: z.string(),
+}).passthrough()
+
+const PersistedStateSchema = z.object({
+  pages:        z.array(DashboardPageSchema),
+  activePageId: z.string(),
+  theme:        ThemeSchema,
+}).passthrough()
 
 // In-memory cache so reads don't hit disk every time
 let cache: string | null = null
@@ -15,10 +50,8 @@ async function ensureDataDir() {
 
 async function readFromDisk(): Promise<string | null> {
   try {
-    const data = await fs.readFile(STATE_FILE, 'utf-8')
-    return data
-  } catch (err: unknown) {
-    // ENOENT = file doesn't exist yet, that's fine
+    return await fs.readFile(STATE_FILE, 'utf-8')
+  } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
     throw err
   }
@@ -26,8 +59,6 @@ async function readFromDisk(): Promise<string | null> {
 
 async function writeToDisk(data: string): Promise<void> {
   await ensureDataDir()
-  // Write to a temp file first, then rename — atomic, prevents corruption
-  // if the process is killed mid-write
   const tmp = `${STATE_FILE}.tmp`
   await fs.writeFile(tmp, data, 'utf-8')
   await fs.rename(tmp, STATE_FILE)
@@ -35,7 +66,6 @@ async function writeToDisk(data: string): Promise<void> {
 
 export async function stateRoutes(app: FastifyInstance) {
 
-  // Warm the cache on startup
   try {
     await ensureDataDir()
     cache = await readFromDisk()
@@ -50,14 +80,25 @@ export async function stateRoutes(app: FastifyInstance) {
 
   // GET /api/state
   app.get('/', async (_req, reply) => {
-    // Serve from cache if available
-    const data = cache ?? await readFromDisk()
-    if (!data) return reply.status(404).send({ data: null })
+    const raw = cache ?? await readFromDisk()
+    if (!raw) return reply.status(404).send({ data: null })
+
+    let parsed: unknown
     try {
-      return { data: JSON.parse(data), savedAt: new Date().toISOString() }
+      parsed = JSON.parse(raw)
     } catch {
-      return reply.status(500).send({ error: 'Corrupted state file' })
+      app.log.error({ file: STATE_FILE }, 'State file contains invalid JSON')
+      return reply.status(500).send({ error: 'Corrupted state file — reset via DELETE /api/state' })
     }
+
+    const result = PersistedStateSchema.safeParse(parsed)
+    if (!result.success) {
+      app.log.warn({ issues: result.error.issues }, 'State file failed schema validation')
+      // Still return the raw data — client defaults will fill in missing fields
+      return { data: parsed, savedAt: new Date().toISOString(), warning: 'State schema mismatch — some fields may be missing' }
+    }
+
+    return { data: result.data, savedAt: new Date().toISOString() }
   })
 
   // PUT /api/state
@@ -65,12 +106,21 @@ export async function stateRoutes(app: FastifyInstance) {
     if (!req.body || typeof req.body !== 'object') {
       return reply.status(400).send({ error: 'Invalid body' })
     }
-    try {
-      const serialized = JSON.stringify(req.body)
-      if (serialized.length < 10)        return reply.status(400).send({ error: 'State too small' })
-      if (serialized.length > 2_000_000) return reply.status(413).send({ error: 'State too large (max 2MB)' })
 
-      // Update cache immediately, write to disk async
+    const result = PersistedStateSchema.safeParse(req.body)
+    if (!result.success) {
+      return reply.status(422).send({
+        error:   'State failed validation',
+        details: result.error.flatten().fieldErrors,
+      })
+    }
+
+    try {
+      const serialized = JSON.stringify(result.data)
+      if (serialized.length > 2_000_000) {
+        return reply.status(413).send({ error: 'State too large (max 2MB)' })
+      }
+
       cache = serialized
       await writeToDisk(serialized)
 
@@ -86,7 +136,7 @@ export async function stateRoutes(app: FastifyInstance) {
   app.delete('/', async (_req, reply) => {
     try {
       cache = null
-      await fs.unlink(STATE_FILE).catch(() => {}) // ignore if already gone
+      await fs.unlink(STATE_FILE).catch(() => {})
       return { ok: true, message: 'State cleared' }
     } catch (err) {
       return reply.status(500).send({ error: `Failed to clear: ${(err as Error).message}` })

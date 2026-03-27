@@ -55,6 +55,7 @@ export interface WidgetProps<TConfig = Record<string, unknown>, TData = unknown>
   config: TConfig
   data: TData | null
   isLoading: boolean
+  error?: string | null
   lastUpdated: Date | null
   onAction?: (action: string, params?: unknown) => void
 }

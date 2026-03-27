@@ -60,9 +60,30 @@ function Arc({ value, color }: ArcProps) {
   )
 }
 
-function GaugeWidget({ config }: WidgetProps<GaugeConfig>) {
+function GaugeWidget({ config, isLoading, error }: WidgetProps<GaugeConfig>) {
   const metrics = useSystemMetrics()
   const color = COLOR_MAP[config.color] ?? COLOR_MAP.blue
+
+  if (isLoading) {
+    return (
+      <div className="widget-body" style={{ paddingTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ width: 60, height: 28, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          <div style={{ width: 80, height: 11, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
+        <span style={{ fontSize: 18 }}>⚠️</span>
+        <span style={{ textAlign: 'center' }}>{error}</span>
+      </div>
+    )
+  }
 
   let value: number
   let display: string

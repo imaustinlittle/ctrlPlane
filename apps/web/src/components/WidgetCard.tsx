@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { WidgetDefinition, WidgetInstance } from '../types'
-import { ConfigPanel } from './panels/ConfigPanel'
+import { ConfigPanel }   from './panels/ConfigPanel'
+import { ErrorBoundary } from './ErrorBoundary'
 
 interface Props {
   definition:  WidgetDefinition
@@ -52,14 +53,17 @@ export function WidgetCard({ definition, instance, isEditing, onRemove }: Props)
           )}
         </div>
 
-        {/* Widget content */}
-        <Component
-          widgetId={instance.id}
-          config={instance.config}
-          data={null}
-          isLoading={false}
-          lastUpdated={null}
-        />
+        {/* Widget content — wrapped in per-widget error boundary */}
+        <ErrorBoundary label={displayName}>
+          <Component
+            widgetId={instance.id}
+            config={instance.config}
+            data={null}
+            isLoading={false}
+            error={null}
+            lastUpdated={null}
+          />
+        </ErrorBoundary>
 
         {/* ··· config button — floats over bottom-right of card, outside drag handle
             Only shown in edit mode. onPointerDown stops drag from starting. */}

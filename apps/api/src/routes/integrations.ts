@@ -1,227 +1,239 @@
 import type { FastifyInstance } from 'fastify'
-import { promises as fs } from 'fs'
-import path from 'path'
+import { randomUUID } from 'crypto'
+import { eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { integrations } from '../db/schema.js'
+import { encrypt, decrypt } from '../lib/crypto.js'
+import { ENV } from '../lib/env.js'
+import { getAdapter } from '../integrations/adapters/index.js'
 
-const DATA_DIR   = process.env.DATA_DIR ?? '/data'
-const CONFIG_FILE = path.join(DATA_DIR, 'integrations.json')
+// ── Secrets redaction ─────────────────────────────────────────────────────────
+const SECRET_KEYS = ['token', 'tokenSecret', 'password', 'apiKey', 'secret', 'tokenId']
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-export interface IntegrationConfig {
-  enabled: boolean
-  [key: string]: unknown
-}
-
-export type IntegrationsConfig = Record<string, IntegrationConfig>
-
-// ── Persistence ───────────────────────────────────────────────────────────────
-let cache: IntegrationsConfig | null = null
-
-async function read(): Promise<IntegrationsConfig> {
-  if (cache) return cache
-  try {
-    const raw = await fs.readFile(CONFIG_FILE, 'utf-8')
-    cache = JSON.parse(raw) as IntegrationsConfig
-    return cache
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    throw err
+function redactSecrets(creds: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...creds }
+  for (const key of SECRET_KEYS) {
+    if (key in out) out[key] = '••••••••'
   }
-}
-
-async function write(config: IntegrationsConfig): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true })
-  const tmp = `${CONFIG_FILE}.tmp`
-  await fs.writeFile(tmp, JSON.stringify(config, null, 2), 'utf-8')
-  await fs.rename(tmp, CONFIG_FILE)
-  cache = config
+  return out
 }
 
 // ── Integration proxy helpers ─────────────────────────────────────────────────
-// These fetch from real services using stored credentials.
-// Widgets call /api/integrations/:name/... and never deal with auth/CORS.
 
-async function proxmoxFetch(cfg: IntegrationConfig, endpoint: string) {
-  const { url, tokenId, tokenSecret, verifySsl } = cfg as unknown as {
-    url: string; tokenId: string; tokenSecret: string; verifySsl?: boolean
+async function proxmoxFetch(creds: Record<string, unknown>, endpoint: string) {
+  const { host, tokenId, tokenSecret, verifySsl } = creds as {
+    host: string; tokenId: string; tokenSecret: string; verifySsl?: boolean
   }
-  const res = await fetch(`${url}/api2/json${endpoint}`, {
+  const res = await fetch(`${host}/api2/json${endpoint}`, {
     headers: { Authorization: `PVEAPIToken=${tokenId}=${tokenSecret}` },
-    // @ts-ignore — node-fetch flag
-    ...(verifySsl === false ? { rejectUnauthorized: false } : {}),
+    ...(verifySsl === false ? { signal: AbortSignal.timeout(10_000) } : {}),
   })
   if (!res.ok) throw new Error(`Proxmox: ${res.status} ${res.statusText}`)
   return res.json()
 }
 
-async function hass_fetch(cfg: IntegrationConfig, endpoint: string) {
-  const { url, token } = cfg as unknown as { url: string; token: string }
-  const res = await fetch(`${url}/api${endpoint}`, {
+async function hassFetch(creds: Record<string, unknown>, endpoint: string) {
+  const { host, token } = creds as { host: string; token: string }
+  const res = await fetch(`${host}/api${endpoint}`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
   if (!res.ok) throw new Error(`HomeAssistant: ${res.status} ${res.statusText}`)
   return res.json()
 }
 
-async function dockerFetch(cfg: IntegrationConfig, endpoint: string) {
-  const { url } = cfg as unknown as { url: string }
-  // url is either http://dockerhost:2375 or unix socket path
+async function dockerFetch(creds: Record<string, unknown>, endpoint: string) {
+  const { url } = creds as { url: string }
   const res = await fetch(`${url}/v1.41${endpoint}`)
   if (!res.ok) throw new Error(`Docker: ${res.status} ${res.statusText}`)
   return res.json()
 }
 
+// ── Helper: load + decrypt creds for a named integration ─────────────────────
+
+async function loadCreds(name: string): Promise<Record<string, unknown> | null> {
+  const rows = await db.select().from(integrations).where(eq(integrations.name, name))
+  const row  = rows[0]
+  if (!row || !row.enabled) return null
+  return JSON.parse(decrypt(row.credentialsEnc, ENV.MASTER_SECRET)) as Record<string, unknown>
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 export async function integrationRoutes(app: FastifyInstance) {
 
-  // Warm cache
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true })
-    cache = await read()
-  } catch { /* ignore */ }
-
-  // GET /api/integrations — list all integration configs (secrets redacted)
+  // GET /api/integrations — list all (secrets redacted)
   app.get('/', async () => {
-    const config = await read()
-    // Redact secrets before sending to frontend
-    const redacted: IntegrationsConfig = {}
-    for (const [name, cfg] of Object.entries(config)) {
-      redacted[name] = { ...cfg }
-      for (const key of ['token', 'tokenSecret', 'password', 'apiKey', 'secret']) {
-        if (key in redacted[name]) redacted[name][key] = '••••••••'
+    const rows = await db.select().from(integrations)
+    return rows.map(row => {
+      let creds: Record<string, unknown> = {}
+      try { creds = JSON.parse(decrypt(row.credentialsEnc, ENV.MASTER_SECRET)) } catch { /* ignore */ }
+      return {
+        id:              row.id,
+        name:            row.name,
+        adapterKey:      row.adapterKey,
+        enabled:         row.enabled,
+        pollIntervalSec: row.pollIntervalSec,
+        lastStatus:      row.lastStatus,
+        lastPolledAt:    row.lastPolledAt,
+        credentials:     redactSecrets(creds),
       }
-    }
-    return redacted
+    })
   })
 
-  // GET /api/integrations/:name — get one integration config (secrets redacted)
+  // GET /api/integrations/:name
   app.get<{ Params: { name: string } }>('/:name', async (req, reply) => {
-    const config = await read()
-    const cfg = config[req.params.name]
-    if (!cfg) return reply.status(404).send({ error: 'Integration not configured' })
-    const redacted = { ...cfg }
-    for (const key of ['token', 'tokenSecret', 'password', 'apiKey', 'secret']) {
-      if (key in redacted) redacted[key] = '••••••••'
+    const rows = await db.select().from(integrations).where(eq(integrations.name, req.params.name))
+    const row  = rows[0]
+    if (!row) return reply.status(404).send({ error: 'Integration not configured' })
+
+    let creds: Record<string, unknown> = {}
+    try { creds = JSON.parse(decrypt(row.credentialsEnc, ENV.MASTER_SECRET)) } catch { /* ignore */ }
+
+    return {
+      id:              row.id,
+      name:            row.name,
+      adapterKey:      row.adapterKey,
+      enabled:         row.enabled,
+      pollIntervalSec: row.pollIntervalSec,
+      lastStatus:      row.lastStatus,
+      lastPolledAt:    row.lastPolledAt,
+      credentials:     redactSecrets(creds),
     }
-    return redacted
   })
 
-  // PUT /api/integrations/:name — save integration config
-  app.put<{ Params: { name: string }; Body: IntegrationConfig }>('/:name', async (req, reply) => {
+  // PUT /api/integrations/:name — upsert integration config
+  app.put<{
+    Params: { name: string }
+    Body: { adapterKey?: string; enabled?: boolean; pollIntervalSec?: number; credentials?: Record<string, unknown> }
+  }>('/:name', async (req, reply) => {
     if (!req.body || typeof req.body !== 'object') {
       return reply.status(400).send({ error: 'Invalid body' })
     }
-    const config = await read()
-    // Merge — preserve existing secrets if frontend sends back '••••••••'
-    const existing = config[req.params.name] ?? {}
-    const merged: IntegrationConfig = { ...existing, ...req.body }
-    for (const key of ['token', 'tokenSecret', 'password', 'apiKey', 'secret']) {
-      if (merged[key] === '••••••••' && existing[key]) {
-        merged[key] = existing[key] // keep existing secret
+
+    const { name } = req.params
+    const { adapterKey, enabled = true, pollIntervalSec = 30, credentials = {} } = req.body
+
+    // Validate credentials against adapter schema if adapter is specified
+    const key     = adapterKey ?? name
+    const adapter = getAdapter(key)
+    let mergedCreds = credentials
+
+    // Load existing row to preserve secrets the frontend sent back as '••••••••'
+    const existing = await db.select().from(integrations).where(eq(integrations.name, name))
+    if (existing[0]) {
+      let existingCreds: Record<string, unknown> = {}
+      try { existingCreds = JSON.parse(decrypt(existing[0].credentialsEnc, ENV.MASTER_SECRET)) } catch { /* ignore */ }
+      mergedCreds = { ...existingCreds, ...credentials }
+      for (const k of SECRET_KEYS) {
+        if (mergedCreds[k] === '••••••••' && existingCreds[k]) {
+          mergedCreds[k] = existingCreds[k]
+        }
       }
     }
-    config[req.params.name] = merged
-    await write(config)
-    return { ok: true }
-  })
 
-  // DELETE /api/integrations/:name — remove integration
-  app.delete<{ Params: { name: string } }>('/:name', async (req) => {
-    const config = await read()
-    delete config[req.params.name]
-    await write(config)
-    return { ok: true }
-  })
-
-  // ── Proxmox data endpoints ────────────────────────────────────────────────
-  app.get('/proxmox/nodes', async (_req, reply) => {
-    const config = await read()
-    const cfg = config['proxmox']
-    if (!cfg?.enabled) return reply.status(503).send({ error: 'Proxmox not configured' })
-    try {
-      return await proxmoxFetch(cfg, '/nodes')
-    } catch (err) {
-      return reply.status(502).send({ error: (err as Error).message })
+    if (adapter) {
+      const result = adapter.credentialsSchema.safeParse(mergedCreds)
+      if (!result.success) {
+        return reply.status(400).send({ error: 'Invalid credentials', details: result.error.flatten().fieldErrors })
+      }
+      mergedCreds = result.data as Record<string, unknown>
     }
+
+    const credentialsEnc = encrypt(JSON.stringify(mergedCreds), ENV.MASTER_SECRET)
+    const now = new Date().toISOString()
+
+    if (existing[0]) {
+      await db.update(integrations)
+        .set({ adapterKey: key, credentialsEnc, enabled, pollIntervalSec })
+        .where(eq(integrations.name, name))
+    } else {
+      await db.insert(integrations).values({
+        id: randomUUID(), name, adapterKey: key, credentialsEnc,
+        enabled, pollIntervalSec, createdAt: now,
+      })
+    }
+
+    return { ok: true }
+  })
+
+  // DELETE /api/integrations/:name
+  app.delete<{ Params: { name: string } }>('/:name', async (req) => {
+    await db.delete(integrations).where(eq(integrations.name, req.params.name))
+    return { ok: true }
+  })
+
+  // ── Proxmox proxy endpoints ───────────────────────────────────────────────
+
+  app.get('/proxmox/nodes', async (_req, reply) => {
+    const creds = await loadCreds('proxmox')
+    if (!creds) return reply.status(503).send({ error: 'Proxmox not configured or disabled' })
+    try { return await proxmoxFetch(creds, '/nodes') }
+    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
   app.get('/proxmox/resources', async (_req, reply) => {
-    const config = await read()
-    const cfg = config['proxmox']
-    if (!cfg?.enabled) return reply.status(503).send({ error: 'Proxmox not configured' })
-    try {
-      return await proxmoxFetch(cfg, '/cluster/resources')
-    } catch (err) {
-      return reply.status(502).send({ error: (err as Error).message })
-    }
+    const creds = await loadCreds('proxmox')
+    if (!creds) return reply.status(503).send({ error: 'Proxmox not configured or disabled' })
+    try { return await proxmoxFetch(creds, '/cluster/resources') }
+    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
-  // ── Docker data endpoints ─────────────────────────────────────────────────
+  // ── Docker proxy endpoints ────────────────────────────────────────────────
+
   app.get('/docker/containers', async (_req, reply) => {
-    const config = await read()
-    const cfg = config['docker']
-    if (!cfg?.enabled) return reply.status(503).send({ error: 'Docker not configured' })
-    try {
-      return await dockerFetch(cfg, '/containers/json?all=true')
-    } catch (err) {
-      return reply.status(502).send({ error: (err as Error).message })
-    }
+    const creds = await loadCreds('docker')
+    if (!creds) return reply.status(503).send({ error: 'Docker not configured or disabled' })
+    try { return await dockerFetch(creds, '/containers/json?all=true') }
+    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
   app.get('/docker/stats', async (_req, reply) => {
-    const config = await read()
-    const cfg = config['docker']
-    if (!cfg?.enabled) return reply.status(503).send({ error: 'Docker not configured' })
-    try {
-      return await dockerFetch(cfg, '/containers/json?all=true')
-    } catch (err) {
-      return reply.status(502).send({ error: (err as Error).message })
-    }
+    const creds = await loadCreds('docker')
+    if (!creds) return reply.status(503).send({ error: 'Docker not configured or disabled' })
+    try { return await dockerFetch(creds, '/containers/json?all=true') }
+    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
-  // ── Home Assistant data endpoints ─────────────────────────────────────────
+  // ── Home Assistant proxy endpoints ────────────────────────────────────────
+
   app.get('/homeassistant/states', async (_req, reply) => {
-    const config = await read()
-    const cfg = config['homeassistant']
-    if (!cfg?.enabled) return reply.status(503).send({ error: 'Home Assistant not configured' })
-    try {
-      return await hass_fetch(cfg, '/states')
-    } catch (err) {
-      return reply.status(502).send({ error: (err as Error).message })
-    }
+    const creds = await loadCreds('homeassistant')
+    if (!creds) return reply.status(503).send({ error: 'Home Assistant not configured or disabled' })
+    try { return await hassFetch(creds, '/states') }
+    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
-  // ── System metrics (reads from host via /proc) ────────────────────────────
-  // Enabled by default — no credentials needed
+  // ── System metrics (host /proc) ───────────────────────────────────────────
+  // No credentials needed — reads from the container's /proc filesystem
+
   app.get('/system/metrics', async (_req, reply) => {
     try {
+      const { promises: fs } = await import('fs')
       const [cpuStat, memInfo] = await Promise.all([
-        fs.readFile('/proc/stat', 'utf-8').catch(() => null),
+        fs.readFile('/proc/stat',    'utf-8').catch(() => null),
         fs.readFile('/proc/meminfo', 'utf-8').catch(() => null),
       ])
 
-      // Parse CPU usage
       let cpuPercent = null
       if (cpuStat) {
-        const line = cpuStat.split('\n')[0]
+        const line  = cpuStat.split('\n')[0]
         const parts = line.split(/\s+/).slice(1).map(Number)
         const idle  = parts[3] + (parts[4] ?? 0)
         const total = parts.reduce((a, b) => a + b, 0)
         cpuPercent  = Math.round((1 - idle / total) * 100)
       }
 
-      // Parse memory
       let memData = null
       if (memInfo) {
         const get = (key: string) => {
           const m = memInfo.match(new RegExp(`${key}:\\s+(\\d+)`))
-          return m ? parseInt(m[1]) * 1024 : 0  // kB → bytes
+          return m ? parseInt(m[1]) * 1024 : 0
         }
         const total     = get('MemTotal')
         const available = get('MemAvailable')
         const used      = total - available
         memData = {
-          totalGb:    parseFloat((total / 1e9).toFixed(1)),
-          usedGb:     parseFloat((used  / 1e9).toFixed(1)),
+          totalGb:     parseFloat((total / 1e9).toFixed(1)),
+          usedGb:      parseFloat((used  / 1e9).toFixed(1)),
           usedPercent: Math.round((used / total) * 100),
         }
       }

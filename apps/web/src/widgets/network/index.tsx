@@ -2,10 +2,30 @@ import { useRef } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
 import { useNetworkStats, useSparkline } from '../../hooks/useMockData'
 
-function NetworkWidget(_props: WidgetProps) {
+function NetworkWidget({ isLoading, error }: WidgetProps) {
   const stats     = useNetworkStats()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   useSparkline(canvasRef, stats.history)
+
+  if (isLoading) {
+    return (
+      <div className="widget-body" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ height: 14, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        ))}
+        <div style={{ height: 50, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite', marginTop: 4 }} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
+        <span style={{ fontSize: 18 }}>📶</span>
+        <span>{error}</span>
+      </div>
+    )
+  }
 
   const fmt = (mbps: number) =>
     mbps >= 1000

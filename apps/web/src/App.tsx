@@ -3,6 +3,7 @@ import { DashboardCanvas } from './components/DashboardCanvas'
 import { Topbar }          from './components/Topbar'
 import { SidePanel }       from './components/SidePanel'
 import { ToastContainer }  from './components/Toast'
+import { ErrorBoundary }   from './components/ErrorBoundary'
 import { useDashboardStore } from './store'
 
 export default function App() {
@@ -30,7 +31,9 @@ export default function App() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Topbar />
       <SidePanel />
-      <DashboardCanvas />
+      <ErrorBoundary label="Dashboard">
+        <DashboardCanvas />
+      </ErrorBoundary>
       <ToastContainer />
     </div>
   )
