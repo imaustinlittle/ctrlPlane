@@ -72,8 +72,8 @@ export interface WidgetDefinition<TConfig = Record<string, unknown>, TData = unk
   minH: number
   maxW?: number
   maxH?: number
-  /** Optional: return dynamic min dimensions based on current config (e.g. link count). */
-  getMinSize?: (config: TConfig) => { minW: number; minH: number }
+  /** Optional: return dynamic min dimensions based on current config and current grid width. */
+  getMinSize?: (config: TConfig, layout: { w: number }) => { minW: number; minH: number }
   component: React.ComponentType<WidgetProps<TConfig, TData>>
 }
 

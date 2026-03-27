@@ -51,8 +51,8 @@ function applyDefinitionConstraints(
     const def = getWidget(instance.type)
     if (!def) return item
 
-    // Dynamic min size from widget definition (e.g. based on config contents)
-    const dynamic = def.getMinSize?.(instance.config)
+    // Dynamic min size from widget definition (e.g. based on config + current width)
+    const dynamic = def.getMinSize?.(instance.config, { w: item.w })
     const minW = dynamic?.minW ?? def.minW ?? 1
     const minH = dynamic?.minH ?? def.minH ?? 1
     return {

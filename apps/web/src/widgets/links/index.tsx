@@ -22,7 +22,8 @@ const DEFAULT_LINKS: LinkItem[] = [
   { name: 'Sonarr',     url: '#',                    emoji: '📡' },
 ]
 
-const GAP = 6
+const CELL = 80   // fixed px — cells never stretch
+const GAP  = 6
 
 function isImageUrl(s: string): boolean {
   return /^https?:\/\/|^data:|^\//.test(s.trim())
@@ -51,10 +52,10 @@ function LinksWidget({ config }: WidgetProps<LinksConfig>) {
     <div className="widget-body" style={{ padding: '6px 12px 10px' }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-        gridAutoRows: '1fr',
+        gridTemplateColumns: `repeat(auto-fill, ${CELL}px)`,
+        gridAutoRows: `${CELL}px`,
         gap: GAP,
-        flex: 1,
+        alignContent: 'start',
       }}>
         {links.map((link, i) => (
           <a
@@ -117,10 +118,12 @@ export const linksWidget: WidgetDefinition<LinksConfig> = {
   defaultH:    4,
   minW:        2,
   minH:        1,
-  getMinSize(config) {
+  getMinSize(config, { w }) {
     const n = ((config.links as LinkItem[] | undefined) ?? DEFAULT_LINKS).length
-    // At minW=2 columns, need ceil(n/2) rows. Min 1.
-    return { minW: 2, minH: Math.max(1, Math.ceil(n / 2)) }
+    // ~1 grid column ≈ 1 cell wide (both ~80-90px at typical viewport).
+    // Rows needed at current width → that's the minimum height.
+    const cellsPerRow = Math.max(1, w)
+    return { minW: 2, minH: Math.max(1, Math.ceil(n / cellsPerRow)) }
   },
   component:   LinksWidget,
 }
