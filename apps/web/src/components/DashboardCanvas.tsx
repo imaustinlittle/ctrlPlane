@@ -145,7 +145,7 @@ export function DashboardCanvas() {
   return (
     <div
       ref={containerRef}
-      style={{ padding: 10, flex: 1, overflowY: 'auto' }}
+      style={{ padding: '10px 10px 10px 28px', flex: 1, overflowY: 'auto' }}
       className={isEditing ? 'edit-mode' : ''}
     >
       <ReactGridLayout

@@ -81,7 +81,16 @@ export function Topbar() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>⬡</div>
         <span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)', fontWeight: 500, letterSpacing: '-1px' }}>ctrl</span>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            color: 'var(--accent)',
+            fontWeight: 500,
+            letterSpacing: '-1px',
+            background: 'rgba(88,166,255,0.1)',
+            border: '1px solid rgba(88,166,255,0.2)',
+            borderRadius: 4,
+            padding: '1px 5px',
+          }}>ctrl</span>
           <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: '-0.3px' }}>Plane</span>
         </span>
       </div>
