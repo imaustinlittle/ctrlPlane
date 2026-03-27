@@ -55,7 +55,8 @@ function LinksWidget({ config }: WidgetProps<LinksConfig>) {
         gridTemplateColumns: `repeat(auto-fill, ${CELL}px)`,
         gridAutoRows: `${CELL}px`,
         gap: GAP,
-        alignContent: 'start',
+        alignContent: 'center',
+        justifyContent: 'center',
       }}>
         {links.map((link, i) => (
           <a
