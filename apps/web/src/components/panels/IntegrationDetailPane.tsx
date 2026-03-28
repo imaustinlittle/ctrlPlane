@@ -165,11 +165,10 @@ function InstanceForm({ integrationKey, existing, onSave, onCancel }: {
 }
 
 // ── InstanceRow ───────────────────────────────────────────────────────────────
-function InstanceRow({ instance, integrationKey, onEdit, onDelete }: {
-  instance:       Instance
-  integrationKey: string
-  onEdit:         () => void
-  onDelete:       () => void
+function InstanceRow({ instance, onEdit, onDelete }: {
+  instance: Instance
+  onEdit:   () => void
+  onDelete: () => void
 }) {
   const statusColor = instance.enabled ? 'var(--accent-g)' : 'var(--border)'
 
@@ -294,7 +293,6 @@ export function IntegrationDetailPane({ integrationKey }: { integrationKey: stri
                 : <InstanceRow
                     key={inst.id}
                     instance={inst}
-                    integrationKey={integrationKey}
                     onEdit={() => { setShowAdd(false); setEditingId(inst.id) }}
                     onDelete={() => handleDelete(inst.id)}
                   />
