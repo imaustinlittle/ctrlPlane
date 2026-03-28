@@ -305,26 +305,24 @@ export function IntegrationDetailPane({ integrationKey }: { integrationKey: stri
                 onCancel={() => setShowAdd(false)}
               />
             )}
+
+            {!showAdd && !editingId && (
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{
+                  width: '100%', padding: '9px 0', borderRadius: 8,
+                  border: '1px dashed var(--border-b)', background: 'none',
+                  color: 'var(--text2)', cursor: 'pointer', fontSize: 13,
+                  fontFamily: 'inherit', transition: 'all 0.15s',
+                  marginTop: 4,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(88,166,255,0.04)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text2)'; e.currentTarget.style.borderColor = 'var(--border-b)'; e.currentTarget.style.background = 'none' }}
+              >+ Add instance</button>
+            )}
           </>
         )}
       </div>
-
-      {/* Add button */}
-      {!showAdd && !editingId && (
-        <div style={{ padding: '0 16px 16px', flexShrink: 0 }}>
-          <button
-            onClick={() => setShowAdd(true)}
-            style={{
-              width: '100%', padding: '9px 0', borderRadius: 8,
-              border: '1px dashed var(--border-b)', background: 'none',
-              color: 'var(--text2)', cursor: 'pointer', fontSize: 13,
-              fontFamily: 'inherit', transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(88,166,255,0.04)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text2)'; e.currentTarget.style.borderColor = 'var(--border-b)'; e.currentTarget.style.background = 'none' }}
-          >+ Add instance</button>
-        </div>
-      )}
     </div>
   )
 }
