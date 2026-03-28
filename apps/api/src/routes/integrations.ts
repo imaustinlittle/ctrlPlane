@@ -34,10 +34,17 @@ async function proxmoxFetch(creds: Record<string, unknown>, endpoint: string) {
 
 async function hassFetch(creds: Record<string, unknown>, endpoint: string) {
   const { host, token } = creds as { host: string; token: string }
-  const res = await fetch(`${host}/api${endpoint}`, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  })
-  if (!res.ok) throw new Error(`HomeAssistant: ${res.status} ${res.statusText}`)
+  let res: Response
+  try {
+    res = await fetch(`${host}/api${endpoint}`, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (err) {
+    // Network-level failure (DNS, refused, timeout) — surface the URL so the user knows what failed
+    throw new Error(`Cannot reach ${host} — ${(err as Error).message}. Use an IP address if running in Docker.`)
+  }
+  if (!res.ok) throw new Error(`Home Assistant returned ${res.status} ${res.statusText}`)
   return res.json()
 }
 

@@ -27,24 +27,25 @@ function ServicesWidget({ config }: WidgetProps) {
 
     let cancelled = false
 
+    // Ping directly from the browser using no-cors mode.
+    // - no-cors bypasses CORS restrictions: the browser makes the request but
+    //   returns an opaque response (status 0). The promise resolves if the server
+    //   responds with anything, and rejects only if the host is truly unreachable.
+    // - This avoids Docker networking issues that affect server-side pinging.
     Promise.all(
       services.map(async (svc, i) => {
+        const start = Date.now()
         try {
-          const encoded = encodeURIComponent(svc.url)
-          const res     = await fetch(`/api/ping?url=${encoded}`)
-          const data    = await res.json() as { ok: boolean; warn: boolean; latencyMs: number }
+          await fetch(svc.url, { mode: 'no-cors', signal: AbortSignal.timeout(5_000) })
+          // Resolved → server responded (opaque — no status code available)
           if (cancelled) return
           setStatuses(prev => {
             const next = [...prev]
-            next[i] = {
-              name:    svc.name,
-              emoji:   svc.emoji,
-              status:  data.ok && !data.warn ? 'up' : data.warn ? 'warn' : 'down',
-              pingMs:  data.latencyMs,
-            }
+            next[i] = { name: svc.name, emoji: svc.emoji, status: 'up', pingMs: Date.now() - start }
             return next
           })
         } catch {
+          // Rejected → server unreachable
           if (cancelled) return
           setStatuses(prev => {
             const next = [...prev]

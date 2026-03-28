@@ -87,9 +87,13 @@ function HomeAssistantWidget({ config }: WidgetProps) {
         : '/api/integrations/homeassistant/states'
 
       fetch(url)
-        .then(r => {
-          if (r.status === 503) throw new Error('Home Assistant integration not configured')
-          if (!r.ok) throw new Error(`Server error ${r.status}`)
+        .then(async r => {
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({})) as { error?: string }
+            const msg  = body.error ?? `Server error ${r.status}`
+            if (r.status === 503) throw new Error('not-configured:' + msg)
+            throw new Error(msg)
+          }
           return r.json()
         })
         .then((states: RawHaState[]) => {
@@ -126,16 +130,26 @@ function HomeAssistantWidget({ config }: WidgetProps) {
   }
 
   if (fetchError) {
-    const isNotConfigured = fetchError.includes('not configured')
+    const isNotConfigured = fetchError.startsWith('not-configured:')
+    const detail = isNotConfigured ? fetchError.slice('not-configured:'.length) : fetchError
+    const isConnErr = detail.toLowerCase().includes('fetch') || detail.toLowerCase().includes('connect')
     return (
       <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12, padding: 16, textAlign: 'center' }}>
         <span style={{ fontSize: 22 }}>{isNotConfigured ? '🏠' : '⚠️'}</span>
-        <span style={{ fontWeight: 500 }}>{isNotConfigured ? 'No integration configured' : 'Connection error'}</span>
-        <span style={{ fontSize: 11, opacity: 0.7 }}>
+        <span style={{ fontWeight: 500, color: 'var(--text)' }}>
+          {isNotConfigured ? 'No integration configured' : 'Connection error'}
+        </span>
+        <span style={{ fontSize: 11, opacity: 0.8 }}>
           {isNotConfigured
             ? 'Open the sidebar → Integrations → Home Assistant and add an instance'
-            : fetchError}
+            : detail}
         </span>
+        {isConnErr && !isNotConfigured && (
+          <span style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>
+            Make sure the URL is reachable from the server, not just your browser.
+            Use an IP address instead of a hostname if using Docker.
+          </span>
+        )}
       </div>
     )
   }
