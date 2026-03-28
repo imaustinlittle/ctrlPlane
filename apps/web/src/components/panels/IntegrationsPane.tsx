@@ -1,69 +1,11 @@
 import { useState, useEffect } from 'react'
-
-// ── Integration type definitions ─────────────────────────────────────────────
-interface FieldDef {
-  key:         string
-  label:       string
-  placeholder: string
-  type?:       'text' | 'password' | 'url'
-  hint?:       string
-}
-
-interface IntegrationTypeDef {
-  type:        string
-  label:       string
-  icon:        string
-  description: string
-  docsUrl?:    string
-  fields:      FieldDef[]
-}
-
-export const INTEGRATION_TYPES: IntegrationTypeDef[] = [
-  {
-    type: 'proxmox', label: 'Proxmox VE', icon: '🖥',
-    description: 'Virtual machine and container management',
-    docsUrl: 'https://pve.proxmox.com/wiki/Proxmox_VE_API',
-    fields: [
-      { key: 'url',         label: 'URL',           placeholder: 'https://pve.local:8006', type: 'url' },
-      { key: 'tokenId',     label: 'Token ID',      placeholder: 'user@pam!mytoken',       hint: 'Format: user@realm!tokenname' },
-      { key: 'tokenSecret', label: 'Token Secret',  placeholder: '••••••••',              type: 'password' },
-      { key: 'verifySsl',   label: 'Verify SSL',    placeholder: 'true',                  hint: 'Set false for self-signed certs' },
-    ],
-  },
-  {
-    type: 'docker', label: 'Docker', icon: '🐳',
-    description: 'Container stats via Docker TCP API',
-    docsUrl: 'https://docs.docker.com/engine/api/',
-    fields: [
-      { key: 'url', label: 'Docker API URL', placeholder: 'http://host:2375', type: 'url',
-        hint: 'Enable with: dockerd -H tcp://0.0.0.0:2375' },
-    ],
-  },
-  {
-    type: 'homeassistant', label: 'Home Assistant', icon: '🏠',
-    description: 'Home automation states and services',
-    docsUrl: 'https://developers.home-assistant.io/docs/api/rest/',
-    fields: [
-      { key: 'url',   label: 'URL',                 placeholder: 'http://homeassistant.local:8123', type: 'url' },
-      { key: 'token', label: 'Long-lived Token',    placeholder: '••••••••', type: 'password',
-        hint: 'Profile → Long-Lived Access Tokens' },
-    ],
-  },
-  {
-    type: 'pihole', label: 'Pi-hole', icon: '🌐',
-    description: 'DNS-level ad blocking statistics',
-    docsUrl: 'https://discourse.pi-hole.net/t/pi-hole-api/1863',
-    fields: [
-      { key: 'url',    label: 'URL',     placeholder: 'http://pi.hole',  type: 'url' },
-      { key: 'apiKey', label: 'API Key', placeholder: '••••••••', type: 'password' },
-    ],
-  },
-]
+import { ALL_INTEGRATIONS, INTEGRATION_REGISTRY } from '../../integrations/registry'
+import type { IntegrationDefinition, IntegrationFieldDef } from '../../types'
 
 // ── Shared instance type ──────────────────────────────────────────────────────
 interface Instance {
-  id:      string   // user-defined key e.g. "home-proxmox"
-  type:    string
+  id:      string   // user-defined slug e.g. "home-proxmox"
+  type:    string   // integration key e.g. "proxmox"
   label:   string
   enabled: boolean
   [key: string]: unknown
@@ -81,22 +23,58 @@ const focus = (e: React.FocusEvent<HTMLInputElement>) =>
 const blur  = (e: React.FocusEvent<HTMLInputElement>) =>
   { e.target.style.borderColor = 'var(--border)' }
 
+// ── Field renderer ────────────────────────────────────────────────────────────
+function IntegrationField({ field, value, onChange }: {
+  field: IntegrationFieldDef
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>
+        {field.label}
+      </label>
+      <input
+        type={field.type ?? 'text'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={field.placeholder}
+        style={inp} onFocus={focus} onBlur={blur}
+      />
+      {field.hint && (
+        <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 3 }}>{field.hint}</div>
+      )}
+    </div>
+  )
+}
+
 // ── AddInstanceForm ───────────────────────────────────────────────────────────
 function AddInstanceForm({ onAdd, onCancel }: {
   onAdd: (instance: Instance) => void
   onCancel: () => void
 }) {
-  const [type,   setType]   = useState(INTEGRATION_TYPES[0].type)
-  const [label,  setLabel]  = useState('')
-  const [fields, setFields] = useState<Record<string, string>>({})
+  const [selectedKey, setSelectedKey] = useState<string>(ALL_INTEGRATIONS[0]?.key ?? '')
+  const [label,       setLabel]       = useState('')
+  const [fields,      setFields]      = useState<Record<string, string>>({})
 
-  const typeDef = INTEGRATION_TYPES.find(t => t.type === type)!
+  const def: IntegrationDefinition | undefined = INTEGRATION_REGISTRY.get(selectedKey)
 
   const handleAdd = () => {
-    if (!label.trim()) return
-    // Derive a slug id from the label
+    if (!label.trim() || !def) return
     const id = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
-    onAdd({ id, type, label: label.trim(), enabled: true, ...fields })
+    onAdd({ id, type: selectedKey, label: label.trim(), enabled: true, ...fields })
+  }
+
+  if (ALL_INTEGRATIONS.length === 0) {
+    return (
+      <div style={{
+        background: 'var(--bg2)', border: '1px solid var(--border-b)',
+        borderRadius: 10, padding: '14px 16px', marginBottom: 12,
+        color: 'var(--text2)', fontSize: 12, textAlign: 'center',
+      }}>
+        No integrations available. Add a widget with an integration file to get started.
+      </div>
+    )
   }
 
   return (
@@ -108,24 +86,24 @@ function AddInstanceForm({ onAdd, onCancel }: {
         New integration
       </div>
 
-      {/* Type picker */}
+      {/* Type picker — populated from discovered integration.ts files */}
       <div style={{ marginBottom: 10 }}>
         <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Type</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {INTEGRATION_TYPES.map(t => (
+          {ALL_INTEGRATIONS.map(i => (
             <button
-              key={t.type}
-              onClick={() => setType(t.type)}
+              key={i.key}
+              onClick={() => { setSelectedKey(i.key); setFields({}) }}
               style={{
                 padding: '5px 10px', borderRadius: 6, fontSize: 12,
-                border: `1px solid ${type === t.type ? 'var(--accent)' : 'var(--border)'}`,
-                background: type === t.type ? 'rgba(88,166,255,0.1)' : 'var(--bg3)',
-                color: type === t.type ? 'var(--accent)' : 'var(--text2)',
+                border: `1px solid ${selectedKey === i.key ? 'var(--accent)' : 'var(--border)'}`,
+                background: selectedKey === i.key ? 'rgba(88,166,255,0.1)' : 'var(--bg3)',
+                color: selectedKey === i.key ? 'var(--accent)' : 'var(--text2)',
                 cursor: 'pointer', fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 5,
               }}
             >
-              <span>{t.icon}</span>{t.label}
+              <span>{i.icon}</span>{i.displayName}
             </button>
           ))}
         </div>
@@ -139,7 +117,7 @@ function AddInstanceForm({ onAdd, onCancel }: {
         <input
           value={label}
           onChange={e => setLabel(e.target.value)}
-          placeholder={`e.g. Home ${typeDef.label}`}
+          placeholder={`e.g. Home ${def?.displayName ?? ''}`}
           style={inp} onFocus={focus} onBlur={blur}
         />
         <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 3 }}>
@@ -147,19 +125,14 @@ function AddInstanceForm({ onAdd, onCancel }: {
         </div>
       </div>
 
-      {/* Type-specific fields */}
-      {typeDef.fields.map(f => (
-        <div key={f.key} style={{ marginBottom: 10 }}>
-          <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{f.label}</label>
-          <input
-            type={f.type ?? 'text'}
-            value={fields[f.key] ?? ''}
-            onChange={e => setFields(d => ({ ...d, [f.key]: e.target.value }))}
-            placeholder={f.placeholder}
-            style={inp} onFocus={focus} onBlur={blur}
-          />
-          {f.hint && <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 3 }}>{f.hint}</div>}
-        </div>
+      {/* Fields driven by the discovered integration definition */}
+      {def?.fields.map(f => (
+        <IntegrationField
+          key={f.key}
+          field={f}
+          value={fields[f.key] ?? ''}
+          onChange={v => setFields(d => ({ ...d, [f.key]: v }))}
+        />
       ))}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
@@ -189,11 +162,11 @@ function InstanceCard({ instance, onUpdate, onDelete }: {
   onUpdate: (updated: Instance) => void
   onDelete: () => void
 }) {
-  const typeDef  = INTEGRATION_TYPES.find(t => t.type === instance.type)
+  const def      = INTEGRATION_REGISTRY.get(instance.type)
   const [expanded, setExpanded] = useState(false)
   const [fields,   setFields]   = useState<Record<string, string>>(() => {
     const f: Record<string, string> = {}
-    for (const fd of typeDef?.fields ?? []) {
+    for (const fd of def?.fields ?? []) {
       f[fd.key] = String(instance[fd.key] ?? '')
     }
     return f
@@ -241,13 +214,15 @@ function InstanceCard({ instance, onUpdate, onDelete }: {
         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer' }}
         onClick={() => setExpanded(e => !e)}
       >
-        <span style={{ fontSize: 16 }}>{typeDef?.icon ?? '🔌'}</span>
+        <span style={{ fontSize: 16 }}>{def?.icon ?? '🔌'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
             {instance.label}
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: enabled ? statusColor : 'var(--border)', display: 'inline-block', flexShrink: 0 }} />
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text2)' }}>{typeDef?.label} · <code style={{ fontFamily: "'JetBrains Mono', monospace" }}>{instance.id}</code></div>
+          <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+            {def?.displayName ?? instance.type} · <code style={{ fontFamily: "'JetBrains Mono', monospace" }}>{instance.id}</code>
+          </div>
         </div>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2.5"
           style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
@@ -273,19 +248,20 @@ function InstanceCard({ instance, onUpdate, onDelete }: {
             </button>
           </div>
 
-          {typeDef?.fields.map(f => (
-            <div key={f.key} style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 3 }}>{f.label}</label>
-              <input
-                type={f.type ?? 'text'}
-                value={fields[f.key] ?? ''}
-                onChange={e => setFields(d => ({ ...d, [f.key]: e.target.value }))}
-                placeholder={f.placeholder}
-                style={inp} onFocus={focus} onBlur={blur}
-              />
-              {f.hint && <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>{f.hint}</div>}
-            </div>
+          {def?.fields.map(f => (
+            <IntegrationField
+              key={f.key}
+              field={f}
+              value={fields[f.key] ?? ''}
+              onChange={v => setFields(d => ({ ...d, [f.key]: v }))}
+            />
           ))}
+
+          {!def && (
+            <div style={{ fontSize: 12, color: 'var(--accent-y)', marginBottom: 8 }}>
+              ⚠️ Unknown integration type "{instance.type}" — no matching widget integration file found.
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={handleDelete} style={{
@@ -293,8 +269,8 @@ function InstanceCard({ instance, onUpdate, onDelete }: {
               background: 'rgba(247,129,102,0.08)', color: 'var(--accent-r)',
               cursor: 'pointer', fontSize: 11, fontFamily: 'inherit',
             }}>Remove</button>
-            {typeDef?.docsUrl && (
-              <a href={typeDef.docsUrl} target="_blank" rel="noopener noreferrer"
+            {def?.docsUrl && (
+              <a href={def.docsUrl} target="_blank" rel="noopener noreferrer"
                 style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
                 Docs ↗
               </a>
@@ -380,15 +356,15 @@ export function IntegrationsPane() {
                 color: 'var(--text2)', cursor: 'pointer', fontSize: 13,
                 fontFamily: 'inherit', transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget).style.color = 'var(--accent)'; (e.currentTarget).style.borderColor = 'var(--accent)'; (e.currentTarget).style.background = 'rgba(88,166,255,0.04)' }}
-              onMouseLeave={e => { (e.currentTarget).style.color = 'var(--text2)'; (e.currentTarget).style.borderColor = 'var(--border-b)'; (e.currentTarget).style.background = 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(88,166,255,0.04)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text2)'; e.currentTarget.style.borderColor = 'var(--border-b)'; e.currentTarget.style.background = 'none' }}
             >
               + Add integration
             </button>
           )}
 
           <div style={{ marginTop: 20, padding: '10px 12px', background: 'rgba(88,166,255,0.05)', border: '1px solid rgba(88,166,255,0.12)', borderRadius: 7, fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
-            💡 Credentials stored in <code style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>/data/integrations.json</code> on your server.
+            💡 Credentials stored encrypted on your server. Drop an <code style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)' }}>integration.ts</code> file next to any widget to add a new integration type.
           </div>
         </>
       )}

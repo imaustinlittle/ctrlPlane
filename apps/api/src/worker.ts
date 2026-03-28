@@ -12,7 +12,7 @@ import { db, initDb } from './db/index.js'
 import { integrations, alertRules, alertEvents, notificationChannels } from './db/schema.js'
 import { decrypt } from './lib/crypto.js'
 import { ENV } from './lib/env.js'
-import { getAdapter } from './integrations/adapters/index.js'
+import { loadIntegrationRegistry, getIntegration } from './integrations/loader.js'
 import { sendNotification } from './notifications/index.js'
 
 // ── Redis clients ─────────────────────────────────────────────────────────────
@@ -61,22 +61,22 @@ const worker = new Worker<PollJobData>(
       return
     }
 
-    // Get adapter
-    const adapter = getAdapter(row.adapterKey)
-    if (!adapter) {
-      console.warn(`[worker] No adapter found for key: ${row.adapterKey}`)
+    // Get integration from dynamic registry
+    const integration = getIntegration(row.adapterKey)
+    if (!integration) {
+      console.warn(`[worker] No integration found for key: ${row.adapterKey}`)
       return
     }
 
-    // Fetch data for each supported widget type
+    // Fetch data for each widget type that declared this integration
     const now = new Date().toISOString()
     let anySuccess = false
 
-    for (const widgetType of adapter.supportedWidgets) {
+    for (const [widgetType, fetchData] of integration.widgets) {
       try {
-        const result = await adapter.fetchData(widgetType, {}, creds)
+        const data     = await fetchData(creds as Record<string, string>)
         const cacheKey = `widget:${integrationId}:${widgetType}`
-        await redis.set(cacheKey, JSON.stringify({ data: result.data, lastUpdated: now }), 'EX', 120)
+        await redis.set(cacheKey, JSON.stringify({ data, lastUpdated: now }), 'EX', 120)
         anySuccess = true
         console.log(`[worker] Cached ${cacheKey}`)
       } catch (err) {
@@ -148,9 +148,9 @@ async function evaluateAlertRules(integrationId: string): Promise<void> {
 }
 
 async function getWidgetTypesForIntegration(integrationId: string): Promise<string[]> {
-  const rows = await db.select().from(integrations).where(eq(integrations.id, integrationId))
-  const adapter = rows[0] ? getAdapter(rows[0].adapterKey) : null
-  return adapter?.supportedWidgets ?? []
+  const rows        = await db.select().from(integrations).where(eq(integrations.id, integrationId))
+  const integration = rows[0] ? getIntegration(rows[0].adapterKey) : null
+  return integration ? Array.from(integration.widgets.keys()) : []
 }
 
 /**
@@ -253,6 +253,7 @@ async function bootstrap(): Promise<void> {
   console.log('   Redis:', ENV.REDIS_URL)
   console.log('   DB:   ', ENV.DATABASE_URL ? '[set]' : '[not set]')
 
+  await loadIntegrationRegistry()
   await initDb()
 
   // Schedule polling jobs for all enabled integrations

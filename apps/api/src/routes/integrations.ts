@@ -5,7 +5,7 @@ import { db } from '../db/index.js'
 import { integrations } from '../db/schema.js'
 import { encrypt, decrypt } from '../lib/crypto.js'
 import { ENV } from '../lib/env.js'
-import { getAdapter } from '../integrations/adapters/index.js'
+import { getIntegration } from '../integrations/loader.js'
 
 // ── Secrets redaction ─────────────────────────────────────────────────────────
 const SECRET_KEYS = ['token', 'tokenSecret', 'password', 'apiKey', 'secret', 'tokenId']
@@ -112,9 +112,7 @@ export async function integrationRoutes(app: FastifyInstance) {
     const { name } = req.params
     const { adapterKey, enabled = true, pollIntervalSec = 30, credentials = {} } = req.body
 
-    // Validate credentials against adapter schema if adapter is specified
-    const key     = adapterKey ?? name
-    const adapter = getAdapter(key)
+    const key       = adapterKey ?? name
     let mergedCreds = credentials
 
     // Load existing row to preserve secrets the frontend sent back as '••••••••'
@@ -130,12 +128,9 @@ export async function integrationRoutes(app: FastifyInstance) {
       }
     }
 
-    if (adapter) {
-      const result = adapter.credentialsSchema.safeParse(mergedCreds)
-      if (!result.success) {
-        return reply.status(400).send({ error: 'Invalid credentials', details: result.error.flatten().fieldErrors })
-      }
-      mergedCreds = result.data as Record<string, unknown>
+    // Warn if no integration definition is registered for this key
+    if (!getIntegration(key)) {
+      console.warn(`[integrations] No integration file found for key "${key}" — saving credentials as-is`)
     }
 
     const credentialsEnc = encrypt(JSON.stringify(mergedCreds), ENV.MASTER_SECRET)

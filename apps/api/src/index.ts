@@ -9,7 +9,8 @@ import { actionRoutes }      from './routes/actions.js'
 import { streamRoutes }      from './routes/stream.js'
 import { systemRoutes }      from './routes/system.js'
 import { stateRoutes }       from './routes/state.js'
-import { initDb }            from './db/index.js'
+import { initDb }                    from './db/index.js'
+import { loadIntegrationRegistry }  from './integrations/loader.js'
 import { ENV }               from './lib/env.js'
 
 async function bootstrap() {
@@ -21,6 +22,9 @@ async function bootstrap() {
         : undefined,
     },
   })
+
+  // ── Integration registry ─────────────────────────────────────────────────────
+  await loadIntegrationRegistry()
 
   // ── Database init ────────────────────────────────────────────────────────────
   await initDb()

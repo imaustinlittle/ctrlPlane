@@ -109,6 +109,29 @@ export interface IntegrationInstance {
   lastPolledAt?: string
 }
 
+export interface IntegrationFieldDef {
+  key: string
+  label: string
+  placeholder?: string
+  type?: 'text' | 'password' | 'url' | 'number'
+  hint?: string
+}
+
+export interface IntegrationDefinition {
+  /** Unique key shared across all widgets that use the same credentials (e.g. 'proxmox'). */
+  key: string
+  displayName: string
+  icon: string
+  description: string
+  docsUrl?: string
+  /** Fields collected from the user to configure this integration. */
+  fields: IntegrationFieldDef[]
+  /** Fetch data for this widget from the external service. Runs server-side via the API proxy. */
+  fetchData(credentials: Record<string, string>, widgetConfig?: Record<string, unknown>): Promise<unknown>
+  /** Optional connection health check. */
+  healthCheck?(credentials: Record<string, string>): Promise<{ ok: boolean; message: string; latencyMs?: number }>
+}
+
 // ── Alerts ──────────────────────────────────────────────────────────────────
 
 export type AlertSeverity = 'critical' | 'warning' | 'info'
