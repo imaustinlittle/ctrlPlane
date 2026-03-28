@@ -29,7 +29,7 @@ export function WidgetCard({ definition, instance, isEditing, onRemove }: Props)
           {/* Edit-mode actions — stopPropagation so drag doesn't fire */}
           {isEditing && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
-              onPointerDown={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
             >
               <button
                 onClick={(e) => { e.stopPropagation(); setShowConfig(true) }}
