@@ -1,12 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
-import { useSystemMetrics } from '../../hooks/useMockData'
 
 interface GaugeConfig {
   label: string
   metric: 'cpu' | 'ram' | 'temp'
   color: 'green' | 'purple' | 'yellow' | 'blue' | 'red'
-  unit: string
   subtitle?: string
 }
 
@@ -60,11 +58,32 @@ function Arc({ value, color }: ArcProps) {
   )
 }
 
-function GaugeWidget({ config, isLoading, error }: WidgetProps<GaugeConfig>) {
-  const metrics = useSystemMetrics()
-  const color = COLOR_MAP[config.color] ?? COLOR_MAP.blue
+interface HealthData {
+  cpu:    { usage: number; cores: number }
+  memory: { percent: number; usedGb: number; totalGb: number }
+  tempC:  number | null
+}
 
-  if (isLoading) {
+function GaugeWidget({ config }: WidgetProps<GaugeConfig>) {
+  const color = COLOR_MAP[config.color] ?? COLOR_MAP.blue
+  const [health,  setHealth]  = useState<HealthData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => {
+      fetch('/api/system/health')
+        .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
+        .then((d: HealthData) => { if (!cancelled) { setHealth(d); setError(null); setLoading(false) } })
+        .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false) } })
+    }
+    load()
+    const id = setInterval(load, 5_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  if (loading && !health) {
     return (
       <div className="widget-body" style={{ paddingTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
@@ -76,11 +95,11 @@ function GaugeWidget({ config, isLoading, error }: WidgetProps<GaugeConfig>) {
     )
   }
 
-  if (error) {
+  if (error || !health) {
     return (
       <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
         <span style={{ fontSize: 18 }}>⚠️</span>
-        <span style={{ textAlign: 'center' }}>{error}</span>
+        <span style={{ textAlign: 'center' }}>{error ?? 'No data'}</span>
       </div>
     )
   }
@@ -90,17 +109,22 @@ function GaugeWidget({ config, isLoading, error }: WidgetProps<GaugeConfig>) {
   let extra: string | undefined
 
   if (config.metric === 'cpu') {
-    value = metrics.cpu
-    display = `${Math.round(metrics.cpu)}%`
+    value   = health.cpu.usage
+    display = `${Math.round(health.cpu.usage)}%`
   } else if (config.metric === 'ram') {
-    value = metrics.ram
-    display = `${Math.round(metrics.ram)}%`
-    extra = `${metrics.ramUsedGb} / ${metrics.ramTotalGb} GB`
+    value   = health.memory.percent
+    display = `${Math.round(health.memory.percent)}%`
+    extra   = `${health.memory.usedGb} / ${health.memory.totalGb} GB`
   } else {
-    // temp: map 20–90°C to 0–100%
-    value = Math.min(100, Math.max(0, ((metrics.temp - 20) / 70) * 100))
-    display = `${Math.round(metrics.temp)}°C`
-    extra = `Fan: ${metrics.fanRpm} rpm`
+    // temp
+    if (health.tempC === null) {
+      value   = 0
+      display = 'N/A'
+      extra   = 'Temperature unavailable'
+    } else {
+      value   = Math.min(100, Math.max(0, ((health.tempC - 20) / 70) * 100))
+      display = `${Math.round(health.tempC)}°C`
+    }
   }
 
   return (

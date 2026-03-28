@@ -69,6 +69,13 @@ export const CLOCK_SCHEMA: ConfigSchema = {
       defaultValue: true,
     },
     {
+      key: 'hour12',
+      label: '12-hour time',
+      type: 'toggle',
+      defaultValue: false,
+      description: 'Display AM/PM instead of 24-hour format',
+    },
+    {
       key: 'ntpUrl',
       label: 'Time sync URL (optional)',
       type: 'url',
@@ -174,7 +181,7 @@ export const NETWORK_SCHEMA: ConfigSchema = {
       label: 'Network interface',
       type: 'text',
       placeholder: 'e.g. eth0',
-      description: 'Interface to monitor (future: from API)',
+      description: 'Interface name from /proc/net/dev (e.g. eth0, ens3, wlan0)',
       defaultValue: 'eth0',
     },
   ],
@@ -214,6 +221,13 @@ export const STORAGE_SCHEMA: ConfigSchema = {
 
 export const CONTAINERS_SCHEMA: ConfigSchema = {
   fields: [
+    {
+      key: 'integrationName',
+      label: 'Integration instance',
+      type: 'text',
+      placeholder: 'Leave blank to use the first configured Docker instance',
+      description: 'Only needed if you have multiple Docker integrations configured.',
+    },
     {
       key: 'showStopped',
       label: 'Show stopped containers',

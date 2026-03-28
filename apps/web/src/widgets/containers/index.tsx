@@ -1,9 +1,17 @@
+import { useState, useEffect } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
-import { useContainers } from '../../hooks/useMockData'
-import type { ContainerInfo } from '../../types'
 
-function statusLabel(s: ContainerInfo['status']) {
-  return s === 'running' ? 'running' : s === 'exited' ? 'exited' : s === 'paused' ? 'paused' : 'stopped'
+interface Container {
+  id:         string
+  name:       string
+  image:      string
+  status:     'running' | 'exited' | 'stopped'
+  cpuPercent: number
+  memMb:      number
+}
+
+function statusLabel(s: Container['status']) {
+  return s === 'running' ? 'running' : s === 'exited' ? 'exited' : 'stopped'
 }
 
 const skeletonRow = (key: number) => (
@@ -14,10 +22,46 @@ const skeletonRow = (key: number) => (
   </div>
 )
 
-function ContainersWidget({ isLoading, error }: WidgetProps) {
-  const containers = useContainers()
+function ContainersWidget({ config }: WidgetProps) {
+  const instanceName = config?.integrationName as string | undefined
+  const showStopped  = (config?.showStopped as boolean | undefined) ?? true
+  const showCpu      = (config?.showCpu     as boolean | undefined) ?? true
 
-  if (isLoading) {
+  const [containers, setContainers] = useState<Container[] | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => {
+      const url = instanceName
+        ? `/api/integrations/docker/containers?name=${encodeURIComponent(instanceName)}`
+        : '/api/integrations/docker/containers'
+
+      fetch(url)
+        .then(async r => {
+          if (!r.ok) {
+            const b = await r.json().catch(() => ({})) as { error?: string }
+            const msg = b.error ?? `HTTP ${r.status}`
+            if (r.status === 503) throw new Error('not-configured:' + msg)
+            throw new Error(msg)
+          }
+          return r.json()
+        })
+        .then((data: Container[]) => {
+          if (!cancelled) { setContainers(data); setFetchError(null); setLoading(false) }
+        })
+        .catch((e: Error) => {
+          if (!cancelled) { setFetchError(e.message); setLoading(false) }
+        })
+    }
+    load()
+    const id = setInterval(load, 15_000)
+    return () => { cancelled = true; clearInterval(id) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceName])
+
+  if (loading && containers === null) {
     return (
       <div className="widget-body" style={{ padding: '6px 14px 12px' }}>
         {[0, 1, 2, 3, 4].map(skeletonRow)}
@@ -25,17 +69,29 @@ function ContainersWidget({ isLoading, error }: WidgetProps) {
     )
   }
 
-  if (error) {
+  if (fetchError) {
+    const isNotConfigured = fetchError.startsWith('not-configured:')
+    const detail = isNotConfigured ? fetchError.slice('not-configured:'.length) : fetchError
     return (
-      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
-        <span style={{ fontSize: 18 }}>🐳</span>
-        <span>{error}</span>
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12, padding: 16, textAlign: 'center' }}>
+        <span style={{ fontSize: 22 }}>🐳</span>
+        <span style={{ fontWeight: 500, color: 'var(--text)' }}>
+          {isNotConfigured ? 'No Docker integration configured' : 'Connection error'}
+        </span>
+        <span style={{ fontSize: 11, opacity: 0.8 }}>
+          {isNotConfigured
+            ? 'Open the sidebar → Integrations → Docker and add an instance'
+            : detail}
+        </span>
       </div>
     )
   }
 
-  const running = containers.filter(c => c.status === 'running').length
-  const total   = containers.length
+  if (!containers) return null
+
+  const filtered = showStopped ? containers : containers.filter(c => c.status === 'running')
+  const running  = containers.filter(c => c.status === 'running').length
+  const total    = containers.length
 
   return (
     <div className="widget-body" style={{ padding: '6px 14px 12px' }}>
@@ -54,12 +110,14 @@ function ContainersWidget({ isLoading, error }: WidgetProps) {
           /{total} running
         </span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: "'JetBrains Mono', monospace" }}>CPU</span>
+        {showCpu && (
+          <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: "'JetBrains Mono', monospace" }}>CPU</span>
+        )}
       </div>
 
       {/* Container rows */}
       <div style={{ overflowY: 'auto', flex: 1 }}>
-        {containers.map(c => (
+        {filtered.map(c => (
           <div
             key={c.id}
             style={{
@@ -85,15 +143,17 @@ function ContainersWidget({ isLoading, error }: WidgetProps) {
             <span className={`ct-badge ${statusLabel(c.status)}`}>
               {statusLabel(c.status)}
             </span>
-            <span style={{
-              fontSize: 11,
-              fontFamily: "'JetBrains Mono', monospace",
-              color: 'var(--text2)',
-              minWidth: 36,
-              textAlign: 'right',
-            }}>
-              {c.status === 'running' ? `${c.cpuPercent.toFixed(1)}%` : '—'}
-            </span>
+            {showCpu && (
+              <span style={{
+                fontSize: 11,
+                fontFamily: "'JetBrains Mono', monospace",
+                color: 'var(--text2)',
+                minWidth: 36,
+                textAlign: 'right',
+              }}>
+                {c.status === 'running' ? `${c.cpuPercent.toFixed(1)}%` : '—'}
+              </span>
+            )}
           </div>
         ))}
       </div>

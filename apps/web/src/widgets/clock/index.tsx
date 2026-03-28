@@ -2,20 +2,26 @@ import { useState, useEffect } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
 
 interface ClockConfig {
-  timezone?:   string
+  timezone?:    string
   showSeconds?: boolean
-  ntpUrl?:     string
+  hour12?:      boolean
+  ntpUrl?:      string
 }
 
 function pad(n: number) { return String(n).padStart(2, '0') }
 
-function getTimeParts(date: Date, tz: string) {
+function getTimeParts(date: Date, tz: string, hour12: boolean) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz === 'local' ? undefined : tz,
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12,
   }).formatToParts(date)
   const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
-  return { hh: pad(parseInt(get('hour'))), mm: get('minute'), ss: get('second') }
+  return {
+    hh:     pad(parseInt(get('hour'))),
+    mm:     get('minute'),
+    ss:     get('second'),
+    ampm:   hour12 ? (parts.find(p => p.type === 'dayPeriod')?.value ?? '') : '',
+  }
 }
 
 function getDateString(date: Date, tz: string): string {
@@ -36,6 +42,7 @@ function ClockWidget({ config }: WidgetProps<ClockConfig>) {
 
   const tz      = config.timezone ?? 'local'
   const showSec = config.showSeconds !== false
+  const use12h  = config.hour12 ?? false
   const ntpUrl  = config.ntpUrl
 
   useEffect(() => {
@@ -62,7 +69,7 @@ function ClockWidget({ config }: WidgetProps<ClockConfig>) {
     return () => clearInterval(id)
   }, [ntpUrl])
 
-  const { hh, mm, ss } = getTimeParts(now, tz)
+  const { hh, mm, ss, ampm } = getTimeParts(now, tz, use12h)
   const dim = parseInt(ss) % 2 === 1
   const dateStr = getDateString(now, tz)
   return (
@@ -96,6 +103,9 @@ function ClockWidget({ config }: WidgetProps<ClockConfig>) {
             <span className={`clock-colon${dim ? ' dim' : ''}`}>:</span>
             <span style={{ fontSize: '0.6em', color: 'var(--text2)', alignSelf: 'flex-end', marginBottom: '0.1em' }}>{ss}</span>
           </>
+        )}
+        {ampm && (
+          <span style={{ fontSize: '0.45em', color: 'var(--text2)', alignSelf: 'flex-end', marginBottom: '0.15em', marginLeft: 4 }}>{ampm}</span>
         )}
       </div>
 

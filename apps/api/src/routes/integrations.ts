@@ -56,8 +56,8 @@ async function hassFetch(creds: Record<string, unknown>, endpoint: string) {
 }
 
 async function dockerFetch(creds: Record<string, unknown>, endpoint: string) {
-  const { url } = creds as { url: string }
-  const res = await fetch(`${url}/v1.41${endpoint}`)
+  const host = ((creds.host ?? creds.url) as string).replace(/\/$/, '')
+  const res = await fetch(`${host}/v1.41${endpoint}`)
   if (!res.ok) throw new Error(`Docker: ${res.status} ${res.statusText}`)
   return res.json()
 }
@@ -198,15 +198,53 @@ export async function integrationRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { name?: string } }>('/docker/containers', async (req, reply) => {
     const creds = await loadCreds('docker', req.query.name)
     if (!creds) return reply.status(503).send({ error: 'Docker not configured or disabled' })
-    try { return await dockerFetch(creds, '/containers/json?all=true') }
-    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
-  })
+    try {
+      const host = ((creds.host ?? creds.url) as string).replace(/\/$/, '')
 
-  app.get<{ Querystring: { name?: string } }>('/docker/stats', async (req, reply) => {
-    const creds = await loadCreds('docker', req.query.name)
-    if (!creds) return reply.status(503).send({ error: 'Docker not configured or disabled' })
-    try { return await dockerFetch(creds, '/containers/json?all=true') }
-    catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
+      const listRes = await fetch(`${host}/v1.41/containers/json?all=true`)
+      if (!listRes.ok) throw new Error(`Docker: ${listRes.status} ${listRes.statusText}`)
+      const containers = await listRes.json() as Array<{
+        Id: string; Names: string[]; Image: string; State: string
+      }>
+
+      // Fetch CPU/mem stats for running containers in parallel
+      interface DockerStats {
+        cpu_stats:    { cpu_usage: { total_usage: number }; system_cpu_usage: number; online_cpus?: number }
+        precpu_stats: { cpu_usage: { total_usage: number }; system_cpu_usage: number }
+        memory_stats: { usage: number }
+      }
+      const statsMap = new Map<string, { cpuPercent: number; memMb: number }>()
+      await Promise.all(
+        containers
+          .filter(c => c.State === 'running')
+          .map(async c => {
+            try {
+              const sr = await fetch(`${host}/v1.41/containers/${c.Id}/stats?stream=false`, { signal: AbortSignal.timeout(5_000) })
+              if (!sr.ok) return
+              const s = await sr.json() as DockerStats
+              const cpuDelta    = s.cpu_stats.cpu_usage.total_usage - s.precpu_stats.cpu_usage.total_usage
+              const systemDelta = s.cpu_stats.system_cpu_usage - s.precpu_stats.system_cpu_usage
+              const numCpus     = s.cpu_stats.online_cpus ?? 1
+              const cpuPercent  = systemDelta > 0
+                ? parseFloat(((cpuDelta / systemDelta) * numCpus * 100).toFixed(1))
+                : 0
+              const memMb = parseFloat((s.memory_stats.usage / 1048576).toFixed(0))
+              statsMap.set(c.Id, { cpuPercent, memMb })
+            } catch { /* skip stats for this container */ }
+          })
+      )
+
+      return containers.map(c => ({
+        id:         c.Id.slice(0, 12),
+        name:       c.Names[0]?.replace(/^\//, '') ?? c.Id.slice(0, 12),
+        image:      c.Image,
+        status:     c.State === 'running' ? 'running' : c.State === 'exited' ? 'exited' : 'stopped',
+        cpuPercent: statsMap.get(c.Id)?.cpuPercent ?? 0,
+        memMb:      statsMap.get(c.Id)?.memMb ?? 0,
+      }))
+    } catch (err) {
+      return reply.status(502).send({ error: (err as Error).message })
+    }
   })
 
   // ── Home Assistant proxy endpoints ────────────────────────────────────────

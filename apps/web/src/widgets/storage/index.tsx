@@ -1,15 +1,47 @@
+import { useState, useEffect } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
-import { useStorage } from '../../hooks/useMockData'
+
+interface StorageMount {
+  mount:   string
+  label:   string
+  usedGb:  number
+  totalGb: number
+}
+
+interface StorageConfig {
+  showLabels?: boolean
+  warnAt?:     number
+  criticalAt?: number
+}
 
 function fmt(gb: number): string {
   if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`
   return `${gb.toFixed(0)} GB`
 }
 
-function StorageWidget({ isLoading, error }: WidgetProps) {
-  const mounts = useStorage()
+function StorageWidget({ config }: WidgetProps<StorageConfig>) {
+  const warnAt     = config?.warnAt     ?? 80
+  const criticalAt = config?.criticalAt ?? 90
+  const showLabels = config?.showLabels ?? true
 
-  if (isLoading) {
+  const [mounts,  setMounts]  = useState<StorageMount[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => {
+      fetch('/api/system/storage')
+        .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
+        .then((d: StorageMount[]) => { if (!cancelled) { setMounts(d); setError(null); setLoading(false) } })
+        .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false) } })
+    }
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  if (loading && !mounts) {
     return (
       <div className="widget-body" style={{ paddingTop: 10, gap: 10, display: 'flex', flexDirection: 'column' }}>
         {[0, 1, 2].map(i => (
@@ -22,11 +54,11 @@ function StorageWidget({ isLoading, error }: WidgetProps) {
     )
   }
 
-  if (error) {
+  if (error || !mounts) {
     return (
       <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
         <span style={{ fontSize: 18 }}>💾</span>
-        <span>{error}</span>
+        <span>{error ?? 'No data'}</span>
       </div>
     )
   }
@@ -36,41 +68,26 @@ function StorageWidget({ isLoading, error }: WidgetProps) {
       {mounts.map(m => {
         const pct = (m.usedGb / m.totalGb) * 100
         const color =
-          pct > 85 ? 'var(--accent-r)' :
-          pct > 70 ? 'var(--accent-y)' :
+          pct > criticalAt ? 'var(--accent-r)' :
+          pct > warnAt     ? 'var(--accent-y)' :
           'var(--accent)'
 
         return (
           <div key={m.mount}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>{m.label}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)' }}>
+                {showLabels ? m.label : m.mount}
+              </span>
               <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text2)' }}>
                 {fmt(m.usedGb)} / {fmt(m.totalGb)}
               </span>
             </div>
 
-            {/* Bar track */}
-            <div style={{
-              height: 5,
-              background: 'rgba(255,255,255,0.06)',
-              borderRadius: 3,
-              overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${pct.toFixed(1)}%`,
-                background: color,
-                borderRadius: 3,
-              }} />
+            <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct.toFixed(1)}%`, background: color, borderRadius: 3 }} />
             </div>
 
-            <div style={{
-              fontSize: 10,
-              color: color,
-              textAlign: 'right',
-              marginTop: 2,
-              fontFamily: "'JetBrains Mono', monospace",
-            }}>
+            <div style={{ fontSize: 10, color: color, textAlign: 'right', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
               {pct.toFixed(0)}%
             </div>
           </div>
