@@ -48,12 +48,19 @@ async function dockerFetch(creds: Record<string, unknown>, endpoint: string) {
   return res.json()
 }
 
-// ── Helper: load + decrypt creds for a named integration ─────────────────────
+// ── Helper: load + decrypt creds ─────────────────────────────────────────────
+// Looks up by adapterKey (first enabled instance). Optionally filter to a
+// specific instance by name (for users with multiple instances of one type).
 
-async function loadCreds(name: string): Promise<Record<string, unknown> | null> {
-  const rows = await db.select().from(integrations).where(eq(integrations.name, name))
-  const row  = rows[0]
-  if (!row || !row.enabled) return null
+async function loadCreds(
+  adapterKey: string,
+  instanceName?: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await db.select().from(integrations).where(eq(integrations.adapterKey, adapterKey))
+  const row  = instanceName
+    ? rows.find(r => r.name === instanceName && r.enabled)
+    : rows.find(r => r.enabled)
+  if (!row) return null
   return JSON.parse(decrypt(row.credentialsEnc, ENV.MASTER_SECRET)) as Record<string, unknown>
 }
 
@@ -158,15 +165,15 @@ export async function integrationRoutes(app: FastifyInstance) {
 
   // ── Proxmox proxy endpoints ───────────────────────────────────────────────
 
-  app.get('/proxmox/nodes', async (_req, reply) => {
-    const creds = await loadCreds('proxmox')
+  app.get<{ Querystring: { name?: string } }>('/proxmox/nodes', async (req, reply) => {
+    const creds = await loadCreds('proxmox', req.query.name)
     if (!creds) return reply.status(503).send({ error: 'Proxmox not configured or disabled' })
     try { return await proxmoxFetch(creds, '/nodes') }
     catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
-  app.get('/proxmox/resources', async (_req, reply) => {
-    const creds = await loadCreds('proxmox')
+  app.get<{ Querystring: { name?: string } }>('/proxmox/resources', async (req, reply) => {
+    const creds = await loadCreds('proxmox', req.query.name)
     if (!creds) return reply.status(503).send({ error: 'Proxmox not configured or disabled' })
     try { return await proxmoxFetch(creds, '/cluster/resources') }
     catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
@@ -174,15 +181,15 @@ export async function integrationRoutes(app: FastifyInstance) {
 
   // ── Docker proxy endpoints ────────────────────────────────────────────────
 
-  app.get('/docker/containers', async (_req, reply) => {
-    const creds = await loadCreds('docker')
+  app.get<{ Querystring: { name?: string } }>('/docker/containers', async (req, reply) => {
+    const creds = await loadCreds('docker', req.query.name)
     if (!creds) return reply.status(503).send({ error: 'Docker not configured or disabled' })
     try { return await dockerFetch(creds, '/containers/json?all=true') }
     catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
   })
 
-  app.get('/docker/stats', async (_req, reply) => {
-    const creds = await loadCreds('docker')
+  app.get<{ Querystring: { name?: string } }>('/docker/stats', async (req, reply) => {
+    const creds = await loadCreds('docker', req.query.name)
     if (!creds) return reply.status(503).send({ error: 'Docker not configured or disabled' })
     try { return await dockerFetch(creds, '/containers/json?all=true') }
     catch (err) { return reply.status(502).send({ error: (err as Error).message }) }
@@ -190,8 +197,8 @@ export async function integrationRoutes(app: FastifyInstance) {
 
   // ── Home Assistant proxy endpoints ────────────────────────────────────────
 
-  app.get('/homeassistant/states', async (_req, reply) => {
-    const creds = await loadCreds('homeassistant')
+  app.get<{ Querystring: { name?: string } }>('/homeassistant/states', async (req, reply) => {
+    const creds = await loadCreds('homeassistant', req.query.name)
     if (!creds) return reply.status(503).send({ error: 'Home Assistant not configured or disabled' })
     try { return await hassFetch(creds, '/states') }
     catch (err) { return reply.status(502).send({ error: (err as Error).message }) }

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
 
 interface HaEntity {
@@ -59,12 +60,64 @@ function skeletonRow(key: number) {
   )
 }
 
-function HomeAssistantWidget({ config, data, isLoading, error }: WidgetProps) {
-  const domains       = (config?.domains as string[] | undefined) ?? []
-  const maxItems      = (config?.maxItems as number  | undefined) ?? 20
-  const showDomain    = (config?.showDomain as boolean | undefined) ?? false
+// Raw state shape returned by the HA API proxy
+interface RawHaState {
+  entity_id: string
+  state: string
+  last_updated: string
+  attributes: Record<string, unknown>
+}
 
-  if (isLoading) {
+function HomeAssistantWidget({ config }: WidgetProps) {
+  const domains    = (config?.domains    as string[]  | undefined) ?? []
+  const maxItems   = (config?.maxItems   as number    | undefined) ?? 20
+  const showDomain = (config?.showDomain as boolean   | undefined) ?? false
+  const instanceName = config?.integrationName as string | undefined
+
+  const [entities,   setEntities]   = useState<HaEntity[] | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [loading,    setLoading]    = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => {
+      setLoading(true)
+      const url = instanceName
+        ? `/api/integrations/homeassistant/states?name=${encodeURIComponent(instanceName)}`
+        : '/api/integrations/homeassistant/states'
+
+      fetch(url)
+        .then(r => {
+          if (r.status === 503) throw new Error('Home Assistant integration not configured')
+          if (!r.ok) throw new Error(`Server error ${r.status}`)
+          return r.json()
+        })
+        .then((states: RawHaState[]) => {
+          if (cancelled) return
+          setEntities(states.map(s => ({
+            entityId:    s.entity_id,
+            domain:      s.entity_id.split('.')[0],
+            name:        String(s.attributes.friendly_name ?? s.entity_id),
+            state:       s.state,
+            unit:        String(s.attributes.unit_of_measurement ?? ''),
+            deviceClass: String(s.attributes.device_class ?? ''),
+            lastUpdated: s.last_updated,
+          })))
+          setFetchError(null)
+        })
+        .catch((err: Error) => {
+          if (!cancelled) setFetchError(err.message)
+        })
+        .finally(() => { if (!cancelled) setLoading(false) })
+    }
+
+    load()
+    const interval = setInterval(load, 30_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceName])
+
+  if (loading && entities === null) {
     return (
       <div className="widget-body" style={{ padding: '8px 14px 12px' }}>
         {[0, 1, 2, 3, 4].map(skeletonRow)}
@@ -72,42 +125,37 @@ function HomeAssistantWidget({ config, data, isLoading, error }: WidgetProps) {
     )
   }
 
-  if (error) {
+  if (fetchError) {
+    const isNotConfigured = fetchError.includes('not configured')
     return (
-      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12 }}>
-        <span style={{ fontSize: 18 }}>⚠️</span>
-        <span>{error}</span>
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12, padding: 16, textAlign: 'center' }}>
+        <span style={{ fontSize: 22 }}>{isNotConfigured ? '🏠' : '⚠️'}</span>
+        <span style={{ fontWeight: 500 }}>{isNotConfigured ? 'No integration configured' : 'Connection error'}</span>
+        <span style={{ fontSize: 11, opacity: 0.7 }}>
+          {isNotConfigured
+            ? 'Open the sidebar → Integrations → Home Assistant and add an instance'
+            : fetchError}
+        </span>
       </div>
     )
   }
 
-  if (!data) {
-    return (
-      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12, padding: 16 }}>
-        <span style={{ fontSize: 24 }}>🏠</span>
-        <span>No data yet</span>
-        <span style={{ fontSize: 11, opacity: 0.7 }}>Configure a Home Assistant integration</span>
-      </div>
-    )
-  }
+  if (!entities) return null
 
-  let entities = data as HaEntity[]
+  // Filter, sort, slice — never mutate state
+  let filtered = domains.length > 0
+    ? entities.filter(e => domains.includes(e.domain))
+    : [...entities]
 
-  // Filter to selected domains if any are configured
-  if (domains.length > 0) {
-    entities = entities.filter(e => domains.includes(e.domain))
-  }
-
-  // Sort: unavailable last, then alphabetically by name
-  entities = [...entities].sort((a, b) => {
+  filtered = filtered.sort((a, b) => {
     if (a.state === 'unavailable' && b.state !== 'unavailable') return 1
     if (a.state !== 'unavailable' && b.state === 'unavailable') return -1
     return a.name.localeCompare(b.name)
   })
 
-  entities = entities.slice(0, maxItems)
+  filtered = filtered.slice(0, maxItems)
 
-  if (entities.length === 0) {
+  if (filtered.length === 0) {
     return (
       <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12, padding: 16 }}>
         <span style={{ fontSize: 22 }}>🏠</span>
@@ -118,7 +166,7 @@ function HomeAssistantWidget({ config, data, isLoading, error }: WidgetProps) {
 
   return (
     <div className="widget-body" style={{ padding: '8px 14px 12px', overflowY: 'auto' }}>
-      {entities.map(entity => (
+      {filtered.map(entity => (
         <div
           key={entity.entityId}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}

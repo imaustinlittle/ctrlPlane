@@ -231,6 +231,13 @@ export const CONTAINERS_SCHEMA: ConfigSchema = {
 export const HOMEASSISTANT_SCHEMA: ConfigSchema = {
   fields: [
     {
+      key: 'integrationName',
+      label: 'Integration instance',
+      type: 'text',
+      placeholder: 'Leave blank to use the first configured instance',
+      description: 'Name of the Home Assistant integration instance to use. Only needed if you have multiple HA instances.',
+    },
+    {
       key: 'domains',
       label: 'Filter by domain',
       type: 'tag-list',
