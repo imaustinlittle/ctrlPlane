@@ -49,9 +49,9 @@ export async function loadIntegrationRegistry(): Promise<Map<string, LoadedInteg
   const registry = new Map<string, LoadedIntegration>()
   const seenKeys = new Map<string, string>() // key → first widget name (for mismatch warning)
 
-  let entries: ReturnType<typeof readdirSync>
+  let entries: import('fs').Dirent<string>[]
   try {
-    entries = readdirSync(WIDGETS_DIR, { withFileTypes: true })
+    entries = readdirSync(WIDGETS_DIR, { withFileTypes: true, encoding: 'utf8' })
   } catch {
     console.warn('[ctrlPlane] Could not read widgets directory at:', WIDGETS_DIR)
     REGISTRY = registry
@@ -61,10 +61,10 @@ export async function loadIntegrationRegistry(): Promise<Map<string, LoadedInteg
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
 
-    const integrationFile = join(WIDGETS_DIR, entry.name, 'integration.ts')
+    const integrationFile = join(WIDGETS_DIR, entry.name as string, 'integration.ts')
     if (!existsSync(integrationFile)) continue
 
-    const widgetType = entry.name
+    const widgetType = entry.name as string
 
     try {
       type IntegrationMod = {
