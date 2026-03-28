@@ -33,9 +33,10 @@ export function Topbar() {
   const isEditing    = useDashboardStore(s => s.isEditing)
   const theme        = useDashboardStore(s => s.theme)
   const saveStatus   = useDashboardStore(s => s.saveStatus)
-  const allAlerts    = useDashboardStore(s => s.alerts)
-  const setActivePage  = useDashboardStore(s => s.setActivePage)
-  const toggleEditMode = useDashboardStore(s => s.toggleEditMode)
+  const allAlerts       = useDashboardStore(s => s.alerts)
+  const dismissAllAlerts = useDashboardStore(s => s.dismissAllAlerts)
+  const setActivePage    = useDashboardStore(s => s.setActivePage)
+  const toggleEditMode   = useDashboardStore(s => s.toggleEditMode)
 
   const alerts    = useMemo(() => allAlerts.filter(a => a.status === 'firing'), [allAlerts])
   const critCount = useMemo(() => alerts.filter(a => a.severity === 'critical').length, [alerts])
@@ -153,11 +154,7 @@ export function Topbar() {
               border: `1px solid ${critCount > 0 ? 'rgba(247,129,102,0.3)' : 'rgba(255,166,87,0.3)'}`,
               color: critCount > 0 ? 'var(--accent-r)' : 'var(--accent-y)',
             }}
-            onClick={() => {
-              document.getElementById('alerts-widget')
-                ?.closest('.react-grid-item')
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }}
+            onClick={dismissAllAlerts}
           >
             <span className="animate-pulse-dot" style={{
               width: 6, height: 6, borderRadius: '50%', display: 'inline-block',

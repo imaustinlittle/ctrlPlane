@@ -66,6 +66,7 @@ interface DashboardStore {
   setTheme:           (theme: ThemeConfig) => void
   addAlert:           (alert: AlertEvent) => void
   dismissAlert:       (alertId: string) => void
+  dismissAllAlerts:   () => void
   ackAlert:           (alertId: string) => void
   _initFromAPI:       () => Promise<void>
   _scheduleSave:      () => void
@@ -218,6 +219,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   dismissAlert: (alertId) =>
     set((s) => ({ alerts: s.alerts.filter(a => a.id !== alertId) })),
+  dismissAllAlerts: () => set({ alerts: [] }),
 
   ackAlert: (alertId) =>
     set((s) => ({
