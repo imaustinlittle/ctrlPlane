@@ -141,14 +141,14 @@ export function SidePanel() {
 
   return (
     <>
-      {/* Backdrop */}
-      {stage > 0 && (
+      {/* Backdrop — only at stage 2 so the nav at stage 1 never blocks widget clicks */}
+      {stage === 2 && (
         <div
           onClick={closeAll}
           style={{
             position: 'fixed', inset: 0, zIndex: 100,
-            background: stage === 2 ? 'rgba(0,0,0,0.3)' : 'transparent',
-            backdropFilter: stage === 2 ? 'blur(1px)' : 'none',
+            background: 'rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(1px)',
             transition: 'background 0.3s, backdrop-filter 0.3s',
             cursor: 'default',
           }}
