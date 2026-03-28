@@ -341,8 +341,12 @@ function HaEntityPickerField({ value, onChange, allValues }: {
         }
         return r.json()
       })
-      .then((states: Array<{ entityId: string; name: string; domain: string }>) => {
-        setEntities(states.map(s => ({ entityId: s.entityId, name: s.name, domain: s.domain })))
+      .then((states: Array<{ entity_id: string; attributes: Record<string, unknown> }>) => {
+        setEntities(states.map(s => ({
+          entityId: s.entity_id,
+          domain:   s.entity_id.split('.')[0],
+          name:     String(s.attributes.friendly_name ?? s.entity_id),
+        })))
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
