@@ -306,9 +306,193 @@ function TagListField({ field, value, onChange }: { field: ConfigField; value: s
   )
 }
 
+// ── HA entity picker ──────────────────────────────────────────────────────────
+
+interface HaEntityOption { entityId: string; name: string; domain: string }
+
+const DOMAIN_ICON: Record<string, string> = {
+  light: '💡', switch: '🔌', sensor: '📊', binary_sensor: '🔵',
+  climate: '🌡️', media_player: '🎵', cover: '🪟', lock: '🔒',
+  camera: '📷', automation: '⚙️', script: '📜', person: '👤',
+  weather: '🌤️', input_boolean: '🔘', scene: '🎭',
+}
+
+function HaEntityPickerField({ value, onChange, allValues }: {
+  field: ConfigField
+  value: string[]
+  onChange: (v: string[]) => void
+  allValues: Record<string, unknown>
+}) {
+  const [entities,  setEntities]  = useState<HaEntityOption[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState<string | null>(null)
+  const [search,    setSearch]    = useState('')
+  const instanceName = allValues.integrationName as string | undefined
+
+  useEffect(() => {
+    const url = instanceName
+      ? `/api/integrations/homeassistant/states?name=${encodeURIComponent(instanceName)}`
+      : '/api/integrations/homeassistant/states'
+    fetch(url)
+      .then(async r => {
+        if (!r.ok) {
+          const b = await r.json().catch(() => ({})) as { error?: string }
+          throw new Error(b.error ?? `Error ${r.status}`)
+        }
+        return r.json()
+      })
+      .then((states: Array<{ entityId: string; name: string; domain: string }>) => {
+        setEntities(states.map(s => ({ entityId: s.entityId, name: s.name, domain: s.domain })))
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceName])
+
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter(v => v !== id) : [...value, id])
+
+  const q = search.toLowerCase()
+  const filtered = entities.filter(e =>
+    !q || e.name.toLowerCase().includes(q) || e.entityId.toLowerCase().includes(q)
+  )
+
+  // Group by domain
+  const grouped = filtered.reduce<Record<string, HaEntityOption[]>>((acc, e) => {
+    ;(acc[e.domain] ??= []).push(e)
+    return acc
+  }, {})
+  const domains = Object.keys(grouped).sort()
+
+  return (
+    <Wrap>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Entities</label>
+        {value.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--accent)' }}>{value.length} selected</span>
+            <button
+              onClick={() => onChange([])}
+              style={{ fontSize: 11, color: 'var(--text2)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >Clear all</button>
+          </div>
+        )}
+      </div>
+
+      {/* Selected chips */}
+      {value.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+          {value.map(id => {
+            const entity = entities.find(e => e.entityId === id)
+            return (
+              <span key={id} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 8px', borderRadius: 20, fontSize: 11,
+                background: 'rgba(88,166,255,0.12)', border: '1px solid rgba(88,166,255,0.3)',
+                color: 'var(--accent)',
+              }}>
+                {entity?.name ?? id}
+                <button onClick={() => toggle(id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, fontSize: 10, lineHeight: 1 }}>✕</button>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Search */}
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search entities…"
+        style={{ ...inputStyle, marginBottom: 8 }}
+        onFocus={onFocus} onBlur={onBlur}
+      />
+
+      {/* List */}
+      <div style={{
+        maxHeight: 280, overflowY: 'auto',
+        border: '1px solid var(--border)', borderRadius: 8,
+        background: 'var(--bg3)',
+      }}>
+        {loading && (
+          <div style={{ padding: 16, color: 'var(--text2)', fontSize: 12, textAlign: 'center' }}>Loading entities…</div>
+        )}
+        {error && (
+          <div style={{ padding: 16, color: 'var(--accent-r)', fontSize: 12, textAlign: 'center' }}>{error}</div>
+        )}
+        {!loading && !error && domains.length === 0 && (
+          <div style={{ padding: 16, color: 'var(--text2)', fontSize: 12, textAlign: 'center' }}>No entities found</div>
+        )}
+        {!loading && !error && domains.map(domain => (
+          <div key={domain}>
+            {/* Domain header */}
+            <div style={{
+              padding: '6px 12px', fontSize: 10, fontWeight: 700,
+              letterSpacing: '0.8px', textTransform: 'uppercase',
+              color: 'var(--text2)', background: 'var(--bg2)',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: 6,
+              position: 'sticky', top: 0,
+            }}>
+              <span>{DOMAIN_ICON[domain] ?? '🏠'}</span>
+              {domain}
+              <span style={{ marginLeft: 'auto', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                {grouped[domain].filter(e => value.includes(e.entityId)).length}/{grouped[domain].length}
+              </span>
+            </div>
+            {/* Entities */}
+            {grouped[domain].map(entity => {
+              const selected = value.includes(entity.entityId)
+              return (
+                <div
+                  key={entity.entityId}
+                  onClick={() => toggle(entity.entityId)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '7px 12px', cursor: 'pointer',
+                    borderBottom: '1px solid var(--border)',
+                    background: selected ? 'rgba(88,166,255,0.07)' : 'transparent',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = selected ? 'rgba(88,166,255,0.07)' : 'transparent' }}
+                >
+                  {/* Checkbox */}
+                  <div style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                    border: `1.5px solid ${selected ? 'var(--accent)' : 'var(--border-b)'}`,
+                    background: selected ? 'var(--accent)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.15s',
+                  }}>
+                    {selected && <span style={{ color: '#fff', fontSize: 10, lineHeight: 1 }}>✓</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entity.name}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entity.entityId}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </Wrap>
+  )
+}
+
 // ── Field router ──────────────────────────────────────────────────────────────
 
-function Field({ field, value, onChange }: { field: ConfigField; value: unknown; onChange: (v: unknown) => void }) {
+function Field({ field, value, allValues, onChange }: {
+  field: ConfigField
+  value: unknown
+  allValues: Record<string, unknown>
+  onChange: (v: unknown) => void
+}) {
   switch (field.type) {
     case 'text':
     case 'url':
@@ -324,6 +508,8 @@ function Field({ field, value, onChange }: { field: ConfigField; value: unknown;
       return <UrlListField field={field} value={(value as UrlItem[]) ?? []} onChange={onChange} />
     case 'tag-list':
       return <TagListField field={field} value={(value as string[]) ?? []} onChange={onChange} />
+    case 'ha-entity-picker':
+      return <HaEntityPickerField field={field} value={(value as string[]) ?? []} allValues={allValues} onChange={onChange} />
     default:
       return null
   }
@@ -457,6 +643,7 @@ export function ConfigPanel({ instance, definition, onClose }: Props) {
                 key={field.key}
                 field={field}
                 value={draft[field.key]}
+                allValues={draft}
                 onChange={v => setField(field.key, v)}
               />
             ))

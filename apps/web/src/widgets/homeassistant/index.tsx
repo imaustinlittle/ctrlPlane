@@ -69,10 +69,9 @@ interface RawHaState {
 }
 
 function HomeAssistantWidget({ config }: WidgetProps) {
-  const domains    = (config?.domains    as string[]  | undefined) ?? []
-  const maxItems   = (config?.maxItems   as number    | undefined) ?? 20
-  const showDomain = (config?.showDomain as boolean   | undefined) ?? false
-  const instanceName = config?.integrationName as string | undefined
+  const selectedEntities = (config?.selectedEntities as string[] | undefined) ?? []
+  const showDomain       = (config?.showDomain as boolean | undefined) ?? false
+  const instanceName     = config?.integrationName as string | undefined
 
   const [entities,   setEntities]   = useState<HaEntity[] | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -156,24 +155,27 @@ function HomeAssistantWidget({ config }: WidgetProps) {
 
   if (!entities) return null
 
-  // Filter, sort, slice — never mutate state
-  let filtered = domains.length > 0
-    ? entities.filter(e => domains.includes(e.domain))
-    : [...entities]
+  let filtered: HaEntity[]
 
-  filtered = filtered.sort((a, b) => {
-    if (a.state === 'unavailable' && b.state !== 'unavailable') return 1
-    if (a.state !== 'unavailable' && b.state === 'unavailable') return -1
-    return a.name.localeCompare(b.name)
-  })
-
-  filtered = filtered.slice(0, maxItems)
+  if (selectedEntities.length > 0) {
+    // Show only the explicitly selected entities, preserving picker order
+    filtered = selectedEntities
+      .map(id => entities.find(e => e.entityId === id))
+      .filter((e): e is HaEntity => e !== undefined)
+  } else {
+    // No selection — show all, unavailable last then alphabetical
+    filtered = [...entities].sort((a, b) => {
+      if (a.state === 'unavailable' && b.state !== 'unavailable') return 1
+      if (a.state !== 'unavailable' && b.state === 'unavailable') return -1
+      return a.name.localeCompare(b.name)
+    })
+  }
 
   if (filtered.length === 0) {
     return (
       <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--text2)', fontSize: 12, padding: 16 }}>
         <span style={{ fontSize: 22 }}>🏠</span>
-        <span>No entities match filter</span>
+        <span>{selectedEntities.length > 0 ? 'Selected entities not found in HA' : 'No entities'}</span>
       </div>
     )
   }

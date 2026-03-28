@@ -11,8 +11,9 @@ export type FieldType =
   | 'select'
   | 'color'
   | 'textarea'
-  | 'url-list'   // list of {name, url, emoji} items
-  | 'tag-list'   // simple list of strings
+  | 'url-list'         // list of {name, url, emoji} items
+  | 'tag-list'         // simple list of strings
+  | 'ha-entity-picker' // multi-select from live HA entity list
 
 export interface SelectOption {
   value: string
@@ -235,22 +236,13 @@ export const HOMEASSISTANT_SCHEMA: ConfigSchema = {
       label: 'Integration instance',
       type: 'text',
       placeholder: 'Leave blank to use the first configured instance',
-      description: 'Name of the Home Assistant integration instance to use. Only needed if you have multiple HA instances.',
+      description: 'Only needed if you have multiple Home Assistant integrations configured.',
     },
     {
-      key: 'domains',
-      label: 'Filter by domain',
-      type: 'tag-list',
-      description: 'Only show entities from these domains. Leave empty to show all. e.g. light, sensor, switch',
-    },
-    {
-      key: 'maxItems',
-      label: 'Max entities shown',
-      type: 'number',
-      defaultValue: 20,
-      min: 5,
-      max: 100,
-      step: 5,
+      key: 'selectedEntities',
+      label: 'Entities',
+      type: 'ha-entity-picker',
+      description: 'Choose which entities to display. Leave empty to show all.',
     },
     {
       key: 'showDomain',
