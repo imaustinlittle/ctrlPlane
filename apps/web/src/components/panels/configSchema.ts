@@ -228,6 +228,33 @@ export const CONTAINERS_SCHEMA: ConfigSchema = {
   ],
 }
 
+export const HOMEASSISTANT_SCHEMA: ConfigSchema = {
+  fields: [
+    {
+      key: 'domains',
+      label: 'Filter by domain',
+      type: 'tag-list',
+      description: 'Only show entities from these domains. Leave empty to show all. e.g. light, sensor, switch',
+    },
+    {
+      key: 'maxItems',
+      label: 'Max entities shown',
+      type: 'number',
+      defaultValue: 20,
+      min: 5,
+      max: 100,
+      step: 5,
+    },
+    {
+      key: 'showDomain',
+      label: 'Show domain label',
+      type: 'toggle',
+      defaultValue: false,
+      description: 'Display the entity domain (e.g. sensor, light) next to each name',
+    },
+  ],
+}
+
 export const ALERTS_SCHEMA: ConfigSchema = {
   fields: [
     {
@@ -252,13 +279,14 @@ export const ALERTS_SCHEMA: ConfigSchema = {
 // Maps widget type → its config schema
 
 export const WIDGET_SCHEMAS: Record<string, ConfigSchema> = {
-  clock:      CLOCK_SCHEMA,
-  weather:    WEATHER_SCHEMA,
-  gauge:      GAUGE_SCHEMA,
-  services:   SERVICES_SCHEMA,
-  links:      LINKS_SCHEMA,
-  network:    NETWORK_SCHEMA,
-  storage:    STORAGE_SCHEMA,
-  containers: CONTAINERS_SCHEMA,
-  alerts:     ALERTS_SCHEMA,
+  clock:         CLOCK_SCHEMA,
+  weather:       WEATHER_SCHEMA,
+  gauge:         GAUGE_SCHEMA,
+  services:      SERVICES_SCHEMA,
+  links:         LINKS_SCHEMA,
+  network:       NETWORK_SCHEMA,
+  storage:       STORAGE_SCHEMA,
+  containers:    CONTAINERS_SCHEMA,
+  alerts:        ALERTS_SCHEMA,
+  homeassistant: HOMEASSISTANT_SCHEMA,
 }

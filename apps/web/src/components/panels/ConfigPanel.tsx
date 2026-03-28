@@ -244,6 +244,68 @@ function UrlListField({ field, value, onChange }: { field: ConfigField; value: U
   )
 }
 
+// ── Tag list field ────────────────────────────────────────────────────────────
+
+function TagListField({ field, value, onChange }: { field: ConfigField; value: string[]; onChange: (v: string[]) => void }) {
+  const [input, setInput] = useState('')
+
+  const add = () => {
+    const tag = input.trim().toLowerCase()
+    if (!tag || value.includes(tag)) { setInput(''); return }
+    onChange([...value, tag])
+    setInput('')
+  }
+
+  const remove = (tag: string) => onChange(value.filter(t => t !== tag))
+
+  return (
+    <Wrap>
+      <FieldLabel field={field} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+        {value.map(tag => (
+          <span
+            key={tag}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '3px 8px',
+              background: 'rgba(88,166,255,0.12)',
+              border: '1px solid rgba(88,166,255,0.3)',
+              borderRadius: 20,
+              fontSize: 12, color: 'var(--accent)',
+            }}
+          >
+            {tag}
+            <button
+              onClick={() => remove(tag)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: 0, fontSize: 11, lineHeight: 1 }}
+            >✕</button>
+          </span>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={field.placeholder ?? 'Type and press Enter'}
+          style={{ ...inputStyle, flex: 1 }}
+          onFocus={onFocus} onBlur={onBlur}
+        />
+        <button
+          onClick={add}
+          style={{
+            padding: '8px 14px', borderRadius: 7, border: '1px solid var(--border)',
+            background: 'var(--bg3)', color: 'var(--text)', cursor: 'pointer',
+            fontSize: 13, fontFamily: 'inherit', transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)' }}
+        >Add</button>
+      </div>
+    </Wrap>
+  )
+}
+
 // ── Field router ──────────────────────────────────────────────────────────────
 
 function Field({ field, value, onChange }: { field: ConfigField; value: unknown; onChange: (v: unknown) => void }) {
@@ -260,6 +322,8 @@ function Field({ field, value, onChange }: { field: ConfigField; value: unknown;
       return <SelectField field={field} value={String(value ?? field.defaultValue ?? '')} onChange={onChange} />
     case 'url-list':
       return <UrlListField field={field} value={(value as UrlItem[]) ?? []} onChange={onChange} />
+    case 'tag-list':
+      return <TagListField field={field} value={(value as string[]) ?? []} onChange={onChange} />
     default:
       return null
   }

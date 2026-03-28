@@ -28,7 +28,8 @@ export async function widgetRoutes(app: FastifyInstance) {
       { type: 'containers', displayName: 'Containers',      category: 'system',     icon: '🐳', defaultW: 4, defaultH: 5 },
       { type: 'storage',    displayName: 'Storage',         category: 'system',     icon: '💾', defaultW: 4, defaultH: 4 },
       { type: 'network',    displayName: 'Network',         category: 'network',    icon: '📶', defaultW: 4, defaultH: 4 },
-      { type: 'links',      displayName: 'Quick Links',     category: 'general',    icon: '🔗', defaultW: 4, defaultH: 4 },
+      { type: 'links',          displayName: 'Quick Links',     category: 'general',    icon: '🔗', defaultW: 4, defaultH: 4 },
+      { type: 'homeassistant',  displayName: 'Home Assistant',  category: 'automation', icon: '🏠', defaultW: 4, defaultH: 6 },
     ],
   }))
 

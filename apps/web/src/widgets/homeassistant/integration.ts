@@ -4,7 +4,7 @@ export const integration: IntegrationDefinition = {
   key: 'homeassistant',
   displayName: 'Home Assistant',
   icon: '🏠',
-  description: 'Entity states, automations, and quick actions',
+  description: 'Entity states, sensor readings, and device control',
   docsUrl: 'https://developers.home-assistant.io/docs/api/rest/',
   fields: [
     { key: 'host',  label: 'URL',              type: 'url',      placeholder: 'http://homeassistant.local:8123' },
@@ -15,15 +15,21 @@ export const integration: IntegrationDefinition = {
     const res    = await fetch(`${creds.host}/api/states`, {
       headers: { Authorization: `Bearer ${creds.token}` },
     })
+    if (!res.ok) throw new Error(`HA API returned ${res.status}`)
     const states = await res.json() as Array<{
-      entity_id: string; state: string; attributes: Record<string, unknown>
+      entity_id: string
+      state: string
+      last_updated: string
+      attributes: Record<string, unknown>
     }>
-    const relevant = states
-      .filter(s => ['binary_sensor', 'sensor', 'switch', 'light'].some(d => s.entity_id.startsWith(d)))
-      .slice(0, 10)
-    return relevant.map(s => ({
-      name:   s.attributes.friendly_name ?? s.entity_id,
-      status: ['on', 'home', 'open'].includes(s.state) ? 'up' : 'down',
+    return states.map(s => ({
+      entityId:     s.entity_id,
+      domain:       s.entity_id.split('.')[0],
+      name:         String(s.attributes.friendly_name ?? s.entity_id),
+      state:        s.state,
+      unit:         String(s.attributes.unit_of_measurement ?? ''),
+      deviceClass:  String(s.attributes.device_class ?? ''),
+      lastUpdated:  s.last_updated,
     }))
   },
 
