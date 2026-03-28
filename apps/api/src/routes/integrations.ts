@@ -21,9 +21,10 @@ function redactSecrets(creds: Record<string, unknown>): Record<string, unknown> 
 // ── Integration proxy helpers ─────────────────────────────────────────────────
 
 async function proxmoxFetch(creds: Record<string, unknown>, endpoint: string) {
-  const { host, tokenId, tokenSecret, verifySsl } = creds as {
+  const { host: rawHost, tokenId, tokenSecret, verifySsl } = creds as {
     host: string; tokenId: string; tokenSecret: string; verifySsl?: boolean
   }
+  const host = normalizeUrl(rawHost)
   const res = await fetch(`${host}/api2/json${endpoint}`, {
     headers: { Authorization: `PVEAPIToken=${tokenId}=${tokenSecret}` },
     ...(verifySsl === false ? { signal: AbortSignal.timeout(10_000) } : {}),
@@ -32,8 +33,15 @@ async function proxmoxFetch(creds: Record<string, unknown>, endpoint: string) {
   return res.json()
 }
 
+function normalizeUrl(raw: string): string {
+  if (!raw) return raw
+  if (/^https?:\/\//i.test(raw)) return raw
+  return `https://${raw}`
+}
+
 async function hassFetch(creds: Record<string, unknown>, endpoint: string) {
-  const { host, token } = creds as { host: string; token: string }
+  const { host: rawHost, token } = creds as { host: string; token: string }
+  const host = normalizeUrl(rawHost)
   let res: Response
   try {
     res = await fetch(`${host}/api${endpoint}`, {
@@ -41,8 +49,7 @@ async function hassFetch(creds: Record<string, unknown>, endpoint: string) {
       signal: AbortSignal.timeout(10_000),
     })
   } catch (err) {
-    // Network-level failure (DNS, refused, timeout) — surface the URL so the user knows what failed
-    throw new Error(`Cannot reach ${host} — ${(err as Error).message}. Use an IP address if running in Docker.`)
+    throw new Error(`Cannot reach ${host} — ${(err as Error).message}`)
   }
   if (!res.ok) throw new Error(`Home Assistant returned ${res.status} ${res.statusText}`)
   return res.json()

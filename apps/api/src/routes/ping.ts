@@ -12,10 +12,12 @@ export async function pingRoutes(app: FastifyInstance) {
     const { url } = req.query
     if (!url) return reply.status(400).send({ error: 'url query param required' })
 
-    // Basic validation — only allow http/https URLs
+    // Normalize — prepend https:// if no protocol given
+    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`
+
     let parsed: URL
     try {
-      parsed = new URL(url)
+      parsed = new URL(normalized)
     } catch {
       return reply.status(400).send({ error: 'Invalid URL' })
     }
@@ -25,7 +27,7 @@ export async function pingRoutes(app: FastifyInstance) {
 
     const start = Date.now()
     try {
-      const res = await fetch(url, {
+      const res = await fetch(normalized, {
         method:  'HEAD',
         signal:  AbortSignal.timeout(5_000),
         // Don't follow redirects — the fact a service responds at all means it's up
