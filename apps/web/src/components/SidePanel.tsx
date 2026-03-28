@@ -108,6 +108,19 @@ export function SidePanel() {
     return () => window.removeEventListener('keydown', onKey)
   }, [stage, detailKey])
 
+  // Click outside — close panel without blocking the underlying click
+  useEffect(() => {
+    if (stage === 0) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        closeAll()
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage])
+
   // Clear detail panel when leaving integrations
   useEffect(() => {
     if (section !== 'integrations') setDetailKey(null)
