@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
 import { useHealthData } from '../shared/useHealthData'
 
