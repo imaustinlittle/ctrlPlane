@@ -242,22 +242,42 @@ export async function systemRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { location?: string; units?: string } }>('/weather', async (req, reply) => {
     const { location = 'Smyrna, GA', units = 'imperial' } = req.query
     try {
-      interface GeoResult { results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string }> }
+      interface GeoResult { results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string }> }
 
-      // Try full location string first; fall back to just the city name (before any comma)
-      const cityOnly = location.split(',')[0].trim()
-      let geo: GeoResult = {}
-      for (const q of [location, cityOnly]) {
-        const r = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`,
-          { signal: AbortSignal.timeout(8_000) },
-        )
-        geo = await r.json() as GeoResult
-        if (geo.results?.length) break
+      // US state abbreviation → full name for result filtering
+      const US_STATES: Record<string, string> = {
+        AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+        CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',
+        HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',
+        KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',
+        MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',
+        MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',
+        NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',
+        OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
+        SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',
+        VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',
       }
+
+      const parts    = location.split(',').map(s => s.trim())
+      const cityName = parts[0]
+      const stateAbbr = parts[1]?.toUpperCase()
+      const stateFull = stateAbbr ? US_STATES[stateAbbr] : undefined
+
+      // Fetch up to 10 candidates so we can filter by state if one was provided
+      const geoRes = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=10&language=en&format=json`,
+        { signal: AbortSignal.timeout(8_000) },
+      )
+      const geo = await geoRes.json() as GeoResult
       if (!geo.results?.length) return reply.status(404).send({ error: `Location not found: ${location}` })
 
-      const { latitude, longitude, name, admin1 } = geo.results[0]
+      // Prefer the result whose admin1 matches the requested state
+      const match = stateFull
+        ? (geo.results.find(r => r.admin1?.toLowerCase() === stateFull.toLowerCase() && r.country_code === 'US')
+           ?? geo.results[0])
+        : geo.results[0]
+
+      const { latitude, longitude, name, admin1 } = match
       const displayLocation = admin1 ? `${name}, ${admin1}` : name
       const tempUnit = units === 'metric' ? 'celsius'    : 'fahrenheit'
       const windUnit = units === 'metric' ? 'kmh'        : 'mph'
