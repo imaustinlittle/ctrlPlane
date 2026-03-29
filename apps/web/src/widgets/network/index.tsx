@@ -112,17 +112,25 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
 
   useEffect(() => { windowMsRef.current = windowMs }, [windowMs])
 
-  // ── rAF draw loop — runs every frame for fluid scrolling ──────────────────
+  // ── Size canvas via ResizeObserver — never touch dimensions in rAF ─────────
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ro = new ResizeObserver(() => {
+      const rect = canvas.getBoundingClientRect()
+      const pw = Math.round(rect.width)
+      const ph = Math.round(rect.height)
+      if (pw > 0 && ph > 0) { canvas.width = pw; canvas.height = ph }
+    })
+    ro.observe(canvas)
+    return () => ro.disconnect()
+  }, [])
+
+  // ── rAF draw loop — only draws, never resizes ─────────────────────────────
   useEffect(() => {
     const frame = () => {
       const canvas = canvasRef.current
-      if (canvas) {
-        // Sync pixel buffer to CSS size on every frame (handles resize)
-        const rect = canvas.getBoundingClientRect()
-        const pw   = Math.round(rect.width)
-        const ph   = Math.round(rect.height)
-        if (canvas.width !== pw)  canvas.width  = pw
-        if (canvas.height !== ph) canvas.height = ph
+      if (canvas && canvas.width > 0 && canvas.height > 0) {
         drawChart(canvas, historyRef.current, windowMsRef.current)
       }
       rafRef.current = requestAnimationFrame(frame)
