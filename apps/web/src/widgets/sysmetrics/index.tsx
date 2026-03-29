@@ -102,7 +102,7 @@ function SysMetricsWidget(_props: WidgetProps) {
   const tempPct = tempC !== null ? Math.min(100, Math.max(0, ((tempC - 20) / 70) * 100)) : 0
 
   return (
-    <div className="widget-body" style={{ display: 'flex', alignItems: 'center', padding: '6px 2px' }}>
+    <div className="widget-body" style={{ flexDirection: 'row', alignItems: 'center', padding: '6px 2px' }}>
       <MetricCell
         label="CPU" color="var(--accent-g)"
         value={cpu} displayVal={loading ? '—' : `${Math.round(cpu)}%`}
