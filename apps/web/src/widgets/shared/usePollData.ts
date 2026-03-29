@@ -6,6 +6,10 @@ interface PollState<T> {
   error:   string | null
 }
 
+// Module-level cache survives tab switches (widget unmount/remount).
+// Keyed by JSON.stringify(deps) so each unique config gets its own entry.
+const dataCache = new Map<string, unknown>()
+
 /**
  * Polls `fetcher` immediately, then on a `intervalMs` cadence.
  * - Keeps showing stale data if a background refresh fails.
@@ -18,7 +22,13 @@ export function usePollData<T>(
   intervalMs: number,
   deps:       React.DependencyList,
 ): PollState<T> & { retry: () => void } {
-  const [state, setState] = useState<PollState<T>>({ data: null, loading: true, error: null })
+  const cacheKey = JSON.stringify(deps)
+  const cached   = dataCache.get(cacheKey) as T | undefined
+  const [state, setState] = useState<PollState<T>>({
+    data:    cached ?? null,
+    loading: cached === undefined,
+    error:   null,
+  })
 
   // Stable refs so the inner `run` closure never goes stale
   const cancelRef   = useRef(false)
@@ -31,7 +41,8 @@ export function usePollData<T>(
   useEffect(() => {
     cancelRef.current  = false
     backoffRef.current = intervalMs
-    setState({ data: null, loading: true, error: null })
+    const primed = dataCache.get(JSON.stringify(deps)) as T | undefined
+    setState({ data: primed ?? null, loading: primed === undefined, error: null })
 
     const run = async () => {
       if (cancelRef.current) return
@@ -39,6 +50,7 @@ export function usePollData<T>(
         const data = await fetcherRef.current()
         if (cancelRef.current) return
         backoffRef.current = intervalMs          // reset backoff on success
+        dataCache.set(JSON.stringify(deps), data)
         setState({ data, loading: false, error: null })
       } catch (e) {
         if (cancelRef.current) return

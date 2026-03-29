@@ -11,6 +11,7 @@ import { systemRoutes }      from './routes/system.js'
 import { stateRoutes }       from './routes/state.js'
 import { pingRoutes }        from './routes/ping.js'
 import { proxyRoutes }       from './routes/proxy.js'
+import { calendarRoutes }    from './routes/calendar.js'
 import { initDb }                    from './db/index.js'
 import { loadIntegrationRegistry }  from './integrations/loader.js'
 import { ENV }               from './lib/env.js'
@@ -52,6 +53,7 @@ async function bootstrap() {
   await app.register(stateRoutes,       { prefix: '/api/state' })
   await app.register(pingRoutes,        { prefix: '/api/ping' })
   await app.register(proxyRoutes,       { prefix: '/api/proxy' })
+  await app.register(calendarRoutes,    { prefix: '/api/calendar' })
 
   // ── Start ────────────────────────────────────────────────────────────────────
   await app.listen({ port: ENV.PORT, host: ENV.HOST })

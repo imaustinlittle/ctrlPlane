@@ -362,6 +362,36 @@ export const TAUTULLI_SCHEMA: ConfigSchema = {
   ],
 }
 
+export const CALENDAR_SCHEMA: ConfigSchema = {
+  fields: [
+    {
+      key:         'feedUrl',
+      label:       'iCal Feed URL',
+      type:        'url',
+      placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics',
+      description: 'Google: Settings → your calendar → "Secret address in iCal format". Apple: share calendar → copy link.',
+      required:    true,
+    },
+    {
+      key:          'days',
+      label:        'Look-ahead (days)',
+      type:         'number',
+      defaultValue: 30,
+      min:          1,
+      max:          365,
+      step:         1,
+      description:  'How many days ahead to show events',
+    },
+    {
+      key:         'label',
+      label:       'Calendar name',
+      type:        'text',
+      placeholder: 'e.g. Work, Family',
+      description: 'Shown in the widget header',
+    },
+  ],
+}
+
 // ── Schema registry ───────────────────────────────────────────────────────────
 // Maps widget type → its config schema
 
@@ -387,4 +417,5 @@ export const WIDGET_SCHEMAS: Record<string, ConfigSchema> = {
   adguardhome:   ADGUARDHOME_SCHEMA,
   plex:          PLEX_SCHEMA,
   tautulli:      TAUTULLI_SCHEMA,
+  calendar:      CALENDAR_SCHEMA,
 }

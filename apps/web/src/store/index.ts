@@ -157,6 +157,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   updateLayout: (pageId, layout) => {
     set((s) => ({ pages: s.pages.map(p => p.id === pageId ? { ...p, layout } : p) }))
+    get()._scheduleSave()
   },
 
   addWidget: (pageId, widget, layout) => {
