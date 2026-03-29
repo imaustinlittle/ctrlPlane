@@ -91,9 +91,9 @@ export const WEATHER_SCHEMA: ConfigSchema = {
       key: 'location',
       label: 'Location',
       type: 'text',
-      placeholder: 'e.g. Smyrna, GA',
+      placeholder: 'e.g. Atlanta, GA',
       description: 'City name for weather display',
-      defaultValue: 'Smyrna, GA',
+      defaultValue: 'Atlanta, GA',
     },
     {
       key: 'units',

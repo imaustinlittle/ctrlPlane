@@ -18,7 +18,7 @@ export const DEFAULT_PAGES: DashboardPage[] = [
     ],
     widgets: [
       { id: 'clock',      type: 'clock',      config: { timezone: 'local', showSeconds: true } },
-      { id: 'weather',    type: 'weather',    config: { location: 'Smyrna, GA', units: 'imperial' } },
+      { id: 'weather',    type: 'weather',    config: { location: 'Atlanta, GA', units: 'imperial' } },
       { id: 'sysmetrics', type: 'sysmetrics',  config: {} },
       { id: 'services',   type: 'services',   config: {} },
       { id: 'alerts',     type: 'alerts',     config: {} },

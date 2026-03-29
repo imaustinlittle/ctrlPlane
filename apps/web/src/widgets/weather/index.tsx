@@ -25,7 +25,7 @@ interface WeatherData {
 }
 
 function WeatherWidget({ config }: WidgetProps<WeatherConfig>) {
-  const location = config?.location ?? 'Smyrna, GA'
+  const location = config?.location ?? 'Atlanta, GA'
   const units    = config?.units    ?? 'imperial'
 
   const [data,    setData]    = useState<WeatherData | null>(null)
