@@ -85,7 +85,7 @@ function GaugeWidget({ config }: WidgetProps<GaugeConfig>) {
 
   if (loading && !health) {
     return (
-      <div className="widget-body" style={{ paddingTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="widget-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 14px' }}>
         <div style={{ width: 76, height: 76, borderRadius: '50%', background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ width: 60, height: 28, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
@@ -128,7 +128,7 @@ function GaugeWidget({ config }: WidgetProps<GaugeConfig>) {
   }
 
   return (
-    <div className="widget-body" style={{ paddingTop: 10 }}>
+    <div className="widget-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Arc value={value} color={color} />
         <div>
@@ -164,7 +164,7 @@ export const gaugeWidget: WidgetDefinition<GaugeConfig> = {
   icon: '⚡',
   category: 'system',
   defaultW: 2,
-  defaultH: 3,
+  defaultH: 2,
   minW: 2,
   minH: 2,
   component: GaugeWidget,

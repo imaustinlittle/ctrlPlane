@@ -8,9 +8,9 @@ export const DEFAULT_PAGES: DashboardPage[] = [
     layout: [
       { i: 'clock',      x: 0,  y: 0, w: 2, h: 3, minW: 2, minH: 2 },
       { i: 'weather',    x: 2,  y: 0, w: 2, h: 3, minW: 2, minH: 3 },
-      { i: 'cpu',        x: 4,  y: 0, w: 2, h: 3, minW: 2, minH: 2 },
-      { i: 'ram',        x: 6,  y: 0, w: 2, h: 3, minW: 2, minH: 2 },
-      { i: 'temp',       x: 8,  y: 0, w: 2, h: 3, minW: 2, minH: 2 },
+      { i: 'cpu',        x: 4,  y: 0, w: 2, h: 2, minW: 2, minH: 2 },
+      { i: 'ram',        x: 6,  y: 0, w: 2, h: 2, minW: 2, minH: 2 },
+      { i: 'temp',       x: 8,  y: 0, w: 2, h: 2, minW: 2, minH: 2 },
       { i: 'services',   x: 0,  y: 3, w: 4, h: 5, minW: 3, minH: 3 },
       { i: 'alerts',     x: 4,  y: 3, w: 4, h: 5, minW: 3, minH: 3 },
       { i: 'containers', x: 8,  y: 3, w: 4, h: 5, minW: 2, minH: 2 },
