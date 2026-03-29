@@ -213,7 +213,7 @@ export const homeassistantWidget: WidgetDefinition = {
   type: 'homeassistant',
   displayName: 'Home Assistant',
   description: 'Entity states and sensor readings from your HA instance',
-  icon: '🏠',
+  icon: <img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg/home-assistant.svg" style={{ width: 18, height: 18, objectFit: 'contain' }} />,
   category: 'automation',
   defaultW: 4,
   defaultH: 6,

@@ -301,6 +301,67 @@ export const ALERTS_SCHEMA: ConfigSchema = {
   ],
 }
 
+const ARR_FIELDS: ConfigField[] = [
+  { key: 'url',    label: 'URL',     type: 'url',      placeholder: 'http://192.168.1.x:8989', required: true },
+  { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Settings → General → Security', required: true },
+]
+
+export const SONARR_SCHEMA:      ConfigSchema = { fields: ARR_FIELDS }
+export const RADARR_SCHEMA:      ConfigSchema = { fields: ARR_FIELDS }
+export const LIDARR_SCHEMA:      ConfigSchema = { fields: ARR_FIELDS }
+
+export const QBITTORRENT_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',      label: 'URL',      type: 'url',      placeholder: 'http://192.168.1.x:8080', required: true },
+    { key: 'username', label: 'Username', type: 'text',     placeholder: 'admin', defaultValue: 'admin' },
+    { key: 'password', label: 'Password', type: 'password', placeholder: 'WebUI password', required: true },
+  ],
+}
+
+export const SABNZBD_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',    label: 'URL',     type: 'url',      placeholder: 'http://192.168.1.x:8080', required: true },
+    { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Config → General → API Key', required: true },
+  ],
+}
+
+export const OPNSENSE_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',       label: 'URL',        type: 'url',      placeholder: 'https://192.168.1.1', required: true },
+    { key: 'apiKey',    label: 'API Key',    type: 'password', placeholder: 'System → Access → Users → API key', required: true },
+    { key: 'apiSecret', label: 'API Secret', type: 'password', placeholder: 'API secret', required: true },
+  ],
+}
+
+export const PIHOLE_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',    label: 'URL',       type: 'url',      placeholder: 'http://192.168.1.x', required: true },
+    { key: 'apiKey', label: 'API Token', type: 'password', placeholder: 'Settings → API → Show API token', required: true },
+  ],
+}
+
+export const ADGUARDHOME_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',      label: 'URL',      type: 'url',      placeholder: 'http://192.168.1.x:3000', required: true },
+    { key: 'username', label: 'Username', type: 'text',     placeholder: 'admin', defaultValue: 'admin' },
+    { key: 'password', label: 'Password', type: 'password', placeholder: 'AdGuard login password', required: true },
+  ],
+}
+
+export const PLEX_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',   label: 'URL',          type: 'url',      placeholder: 'http://192.168.1.x:32400', required: true },
+    { key: 'token', label: 'Access Token', type: 'password', placeholder: 'X-Plex-Token from plex.tv/web → Account → XML', required: true },
+  ],
+}
+
+export const TAUTULLI_SCHEMA: ConfigSchema = {
+  fields: [
+    { key: 'url',    label: 'URL',     type: 'url',      placeholder: 'http://192.168.1.x:8181', required: true },
+    { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Settings → Web Interface → API key', required: true },
+  ],
+}
+
 // ── Schema registry ───────────────────────────────────────────────────────────
 // Maps widget type → its config schema
 
@@ -316,4 +377,14 @@ export const WIDGET_SCHEMAS: Record<string, ConfigSchema> = {
   containers:    CONTAINERS_SCHEMA,
   alerts:        ALERTS_SCHEMA,
   homeassistant: HOMEASSISTANT_SCHEMA,
+  sonarr:        SONARR_SCHEMA,
+  radarr:        RADARR_SCHEMA,
+  lidarr:        LIDARR_SCHEMA,
+  qbittorrent:   QBITTORRENT_SCHEMA,
+  sabnzbd:       SABNZBD_SCHEMA,
+  opnsense:      OPNSENSE_SCHEMA,
+  pihole:        PIHOLE_SCHEMA,
+  adguardhome:   ADGUARDHOME_SCHEMA,
+  plex:          PLEX_SCHEMA,
+  tautulli:      TAUTULLI_SCHEMA,
 }

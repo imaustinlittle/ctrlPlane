@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/imaus/OneDrive/Documents 1/git/ctrlPlane/ctrlPlane -name *worker* -type f)",
+      "Bash(node_modules/.bin/tsc --noEmit -p apps/web/tsconfig.json)",
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --noEmit -p apps/api/tsconfig.json)",
+      "Bash(find 'c:/Users/imaus/OneDrive/Documents 1/git/ctrlPlane/ctrlPlane' -name tsc -path */node_modules/.bin/*)"
+    ]
+  }
+}

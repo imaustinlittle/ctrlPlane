@@ -64,7 +64,7 @@ export interface WidgetDefinition<TConfig = Record<string, unknown>, TData = unk
   type: string
   displayName: string
   description: string
-  icon: string
+  icon: React.ReactNode
   category: WidgetCategory
   defaultW: number
   defaultH: number
