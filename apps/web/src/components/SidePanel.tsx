@@ -210,7 +210,7 @@ export function SidePanel() {
               pointerEvents: 'none',
             }}>
               {[0,1,2].map(i => (
-                <div key={i} style={{ width: 3, height: 1, background: 'var(--text2)', borderRadius: 1, opacity: 0.35 }} />
+                <div key={i} style={{ width: 3, height: 3, background: 'var(--accent)', borderRadius: '50%', opacity: 0.6 }} />
               ))}
             </div>
           )}
