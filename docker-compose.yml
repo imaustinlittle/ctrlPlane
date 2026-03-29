@@ -34,6 +34,7 @@ services:
       LOG_LEVEL:         ${LOG_LEVEL:-info}
     volumes:
       - api-data:/data
+      - /sys/class/thermal:/sys/class/thermal:ro
     depends_on:
       postgres:
         condition: service_healthy

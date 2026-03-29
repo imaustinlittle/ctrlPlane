@@ -186,6 +186,7 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
           : p
       ),
     }))
+    get()._scheduleSave()
   },
 
   addPage: (name, icon) => {
