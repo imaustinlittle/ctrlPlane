@@ -38,12 +38,8 @@ function RadarrWidget({ config }: WidgetProps<RadarrConfig>) {
   if (!data) return null
 
   return (
-    <div className="widget-body" style={{ padding: '12px 14px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src={LOGO} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-        <span style={{ fontWeight: 600, fontSize: 14 }}>Radarr</span>
-        <span style={{ fontSize: 10, color: 'var(--text2)', marginLeft: 'auto' }}>v{data.version}</span>
-      </div>
+    <div className="widget-body" style={{ padding: '10px 14px', gap: 8 }}>
+      <div style={{ fontSize: 10, color: 'var(--text2)', textAlign: 'right' }}>v{data.version}</div>
       <div style={{ display: 'flex', gap: 8 }}>
         <StatCard label="Movies"  value={data.movies}  color="var(--accent)" />
         <StatCard label="Queue"   value={data.queue}   color="var(--accent-y)" />
@@ -57,5 +53,5 @@ export const radarrWidget: WidgetDefinition = {
   type: 'radarr', displayName: 'Radarr', category: 'media',
   description: 'Movie queue and missing films',
   icon: <img src={LOGO} style={{ width: 18, height: 18, objectFit: 'contain' }} />,
-  defaultW: 3, defaultH: 3, minW: 2, minH: 2, component: RadarrWidget,
+  defaultW: 3, defaultH: 2, minW: 2, minH: 2, component: RadarrWidget,
 }
