@@ -184,6 +184,19 @@ export const NETWORK_SCHEMA: ConfigSchema = {
       description: 'Interface name from /proc/net/dev (e.g. eth0, ens3, wlan0)',
       defaultValue: 'eth0',
     },
+    {
+      key: 'timeWindow',
+      label: 'Time window',
+      type: 'select',
+      defaultValue: 5,
+      description: 'How much history to show in the scrolling chart',
+      options: [
+        { value: '1',  label: '1 minute' },
+        { value: '3',  label: '3 minutes' },
+        { value: '5',  label: '5 minutes' },
+        { value: '10', label: '10 minutes' },
+      ],
+    },
   ],
 }
 

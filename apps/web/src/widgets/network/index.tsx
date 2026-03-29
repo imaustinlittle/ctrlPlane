@@ -1,29 +1,131 @@
 import { useState, useEffect, useRef } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
-import { useSparkline } from '../../hooks/useMockData'
 
 interface NetworkConfig {
-  interface?: string
+  interface?:  string
+  timeWindow?: number   // minutes: 1 | 3 | 5 | 10
 }
 
-interface NetworkPoint { up: number; down: number }
+interface NetworkPoint { ts: number; up: number; down: number }
 
-const HISTORY_LEN = 30
+const MAX_HISTORY = 240   // ~20 min at 5s interval — enough for any window
 
+// ── Canvas chart ──────────────────────────────────────────────────────────────
+function drawChart(
+  canvas: HTMLCanvasElement,
+  history: NetworkPoint[],
+  windowMs: number,
+) {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const w = canvas.width
+  const h = canvas.height
+  ctx.clearRect(0, 0, w, h)
+  if (history.length < 2) return
+
+  const now     = Date.now()
+  const startTs = now - windowMs
+
+  // Only work with points that are within or just before the window
+  const pts = history.filter(p => p.ts >= startTs - 8_000)
+  if (pts.length < 2) return
+
+  const maxVal = Math.max(1, ...pts.map(p => Math.max(p.up, p.down)))
+
+  // Map timestamp → x pixel (right edge = "now")
+  const toX = (ts: number) => ((ts - startTs) / windowMs) * w
+  // Map Mbps value → y pixel (0 at bottom with small padding)
+  const toY = (v: number)  => h - (v / maxVal) * h * 0.88 - h * 0.04
+
+  const drawSeries = (
+    getValue: (p: NetworkPoint) => number,
+    stroke: string,
+    fillTop: string,
+  ) => {
+    const mapped = pts.map(p => ({ x: toX(p.ts), y: toY(getValue(p)) }))
+
+    // ── Filled area ──
+    ctx.save()
+    ctx.beginPath()
+    // Start at bottom-left of first point
+    ctx.moveTo(mapped[0].x, h)
+    // Line up to first point
+    ctx.lineTo(mapped[0].x, mapped[0].y)
+    // Draw through all points with smooth curves
+    for (let i = 1; i < mapped.length; i++) {
+      const prev = mapped[i - 1]
+      const curr = mapped[i]
+      const cpX  = (prev.x + curr.x) / 2
+      ctx.bezierCurveTo(cpX, prev.y, cpX, curr.y, curr.x, curr.y)
+    }
+    // Close at bottom-right
+    ctx.lineTo(mapped[mapped.length - 1].x, h)
+    ctx.closePath()
+    const grad = ctx.createLinearGradient(0, 0, 0, h)
+    grad.addColorStop(0, fillTop)
+    grad.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = grad
+    ctx.fill()
+    ctx.restore()
+
+    // ── Stroke line ──
+    ctx.save()
+    ctx.beginPath()
+    ctx.moveTo(mapped[0].x, mapped[0].y)
+    for (let i = 1; i < mapped.length; i++) {
+      const prev = mapped[i - 1]
+      const curr = mapped[i]
+      const cpX  = (prev.x + curr.x) / 2
+      ctx.bezierCurveTo(cpX, prev.y, cpX, curr.y, curr.x, curr.y)
+    }
+    ctx.strokeStyle = stroke
+    ctx.lineWidth   = 1.5
+    ctx.lineJoin    = 'round'
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  drawSeries(p => p.down, 'rgba(88,166,255,0.9)',  'rgba(88,166,255,0.3)')
+  drawSeries(p => p.up,   'rgba(63,185,80,0.9)',   'rgba(63,185,80,0.2)')
+}
+
+// ── Widget ────────────────────────────────────────────────────────────────────
 function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
-  const iface = config?.interface ?? 'eth0'
+  const iface     = config?.interface  ?? 'eth0'
+  const windowMin = Number(config?.timeWindow ?? 5)
+  const windowMs  = windowMin * 60_000
 
-  const [uploadMbps,   setUploadMbps]   = useState(0)
-  const [downloadMbps, setDownloadMbps] = useState(0)
-  const [history,      setHistory]      = useState<NetworkPoint[]>(
-    () => Array.from({ length: HISTORY_LEN }, () => ({ up: 0, down: 0 }))
-  )
+  const [latest,     setLatest]     = useState({ up: 0, down: 0 })
   const [loading,    setLoading]    = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  useSparkline(canvasRef, history)
+  const canvasRef   = useRef<HTMLCanvasElement>(null)
+  const historyRef  = useRef<NetworkPoint[]>([])
+  const rafRef      = useRef<number>(0)
+  const windowMsRef = useRef(windowMs)
 
+  useEffect(() => { windowMsRef.current = windowMs }, [windowMs])
+
+  // ── rAF draw loop — runs every frame for fluid scrolling ──────────────────
+  useEffect(() => {
+    const frame = () => {
+      const canvas = canvasRef.current
+      if (canvas) {
+        // Sync pixel buffer to CSS size on every frame (handles resize)
+        const rect = canvas.getBoundingClientRect()
+        const pw   = Math.round(rect.width)
+        const ph   = Math.round(rect.height)
+        if (canvas.width !== pw)  canvas.width  = pw
+        if (canvas.height !== ph) canvas.height = ph
+        drawChart(canvas, historyRef.current, windowMsRef.current)
+      }
+      rafRef.current = requestAnimationFrame(frame)
+    }
+    rafRef.current = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  // ── API polling ────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     const load = () => {
@@ -31,27 +133,27 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
         .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
         .then((d: { uploadMbps: number; downloadMbps: number }) => {
           if (cancelled) return
-          setUploadMbps(d.uploadMbps)
-          setDownloadMbps(d.downloadMbps)
-          setHistory(h => [...h.slice(1), { up: d.uploadMbps, down: d.downloadMbps }])
+          const point: NetworkPoint = { ts: Date.now(), up: d.uploadMbps, down: d.downloadMbps }
+          setLatest({ up: d.uploadMbps, down: d.downloadMbps })
+          historyRef.current = [...historyRef.current, point].slice(-MAX_HISTORY)
           setFetchError(null)
           setLoading(false)
         })
         .catch((e: Error) => { if (!cancelled) { setFetchError(e.message); setLoading(false) } })
     }
+    // Reset history when iface changes
+    historyRef.current = []
     load()
-    // Poll every 5s — each call takes ~1s to measure, so effective rate ≈ every 6s
     const id = setInterval(load, 5_000)
     return () => { cancelled = true; clearInterval(id) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iface])
 
   const fmt = (mbps: number) =>
-    mbps >= 1000
-      ? `${(mbps / 1000).toFixed(2)} GB/s`
-      : mbps >= 1
-      ? `${mbps.toFixed(0)} MB/s`
-      : `${(mbps * 1000).toFixed(0)} KB/s`
+    mbps >= 1000 ? `${(mbps / 1000).toFixed(2)} GB/s`
+    : mbps >= 1  ? `${mbps.toFixed(0)} MB/s`
+    :              `${(mbps * 1000).toFixed(0)} KB/s`
+
+  const windowLabel = windowMin === 1 ? '1m' : windowMin === 3 ? '3m' : windowMin === 5 ? '5m' : '10m'
 
   if (loading) {
     return (
@@ -78,7 +180,7 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
   }
 
   return (
-    <div className="widget-body" style={{ paddingTop: 10, gap: 0 }}>
+    <div className="widget-body" style={{ paddingTop: 10, gap: 0, paddingBottom: 8 }}>
 
       {/* Stats row */}
       <div style={{ display: 'flex', gap: 24, marginBottom: 10 }}>
@@ -87,7 +189,7 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
             ↑ Upload
           </div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 500, lineHeight: 1, color: 'var(--accent-g)' }}>
-            {fmt(uploadMbps)}
+            {fmt(latest.up)}
           </div>
         </div>
         <div>
@@ -95,42 +197,45 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
             ↓ Download
           </div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 500, lineHeight: 1, color: 'var(--accent)' }}>
-            {fmt(downloadMbps)}
+            {fmt(latest.down)}
           </div>
         </div>
       </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
+      {/* Legend + time window label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
         {[
-          { color: 'var(--accent-g)', label: 'Upload' },
-          { color: 'var(--accent)',   label: 'Download' },
+          { color: 'rgba(63,185,80,0.9)',  label: 'Upload' },
+          { color: 'rgba(88,166,255,0.9)', label: 'Download' },
         ].map(({ color, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 20, height: 2, background: color, borderRadius: 1 }} />
             <span style={{ fontSize: 10, color: 'var(--text2)' }}>{label}</span>
           </div>
         ))}
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text2)', opacity: 0.6 }}>
+          {windowLabel}
+        </span>
       </div>
 
-      {/* Sparkline */}
+      {/* Canvas — fluid scrolling chart */}
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: 52, display: 'block', flex: 1 }}
+        style={{ width: '100%', flex: 1, display: 'block', minHeight: 52 }}
       />
     </div>
   )
 }
 
 export const networkWidget: WidgetDefinition = {
-  type: 'network',
+  type:        'network',
   displayName: 'Network',
-  description: 'Live network throughput sparkline',
-  icon: '📶',
-  category: 'network',
-  defaultW: 4,
-  defaultH: 4,
-  minW: 2,
-  minH: 3,
-  component: NetworkWidget,
+  description: 'Live network throughput with fluid scrolling chart',
+  icon:        '📶',
+  category:    'network',
+  defaultW:    4,
+  defaultH:    4,
+  minW:        2,
+  minH:        3,
+  component:   NetworkWidget,
 }
