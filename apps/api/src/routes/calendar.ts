@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { isBlockedUrl } from '../lib/ssrf'
 
 export interface CalEvent {
   uid:      string
@@ -104,6 +105,9 @@ export async function calendarRoutes(app: FastifyInstance) {
     if (!url) return reply.status(400).send({ error: 'url query param is required' })
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return reply.status(400).send({ error: 'Only http/https URLs are allowed' })
+    }
+    if (isBlockedUrl(url)) {
+      return reply.status(403).send({ error: 'Target host is not allowed' })
     }
 
     const lookAhead = Math.min(365, Math.max(1, parseInt(days, 10) || 30))

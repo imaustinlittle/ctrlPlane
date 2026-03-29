@@ -23,11 +23,13 @@ ctrlPlane is a drag-and-drop homelab dashboard you run on your own server. Conne
 ## Features
 
 - **Drag-and-drop layout** — resize and rearrange widgets freely. Changes save automatically.
-- **Live service data** — pull real metrics from Proxmox, Docker, Home Assistant, Pi-hole, and more.
+- **Multiple pages** — organize widgets across tabbed pages; move widgets between tabs from the ··· menu.
+- **Live service data** — real metrics from Proxmox, Docker, Home Assistant, Pi-hole, and more.
+- **Real-time charts** — fluid scrolling network throughput chart, live CPU/RAM/temp gauges.
 - **Encrypted credentials** — integration secrets are AES-256-GCM encrypted at rest. They never leave your server.
 - **Alerts & notifications** — define threshold rules on your data; get notified via Discord, ntfy, or a custom webhook.
 - **Quick Links** — a customizable bookmark grid for all your self-hosted apps.
-- **Multiple pages** — organize widgets across tabbed pages for a clean layout.
+- **Calendar** — display upcoming events from any Google, Apple, or self-hosted iCal feed.
 - **Themes** — switch accent colors to match your setup.
 - **Self-contained** — ships as a single `docker compose up`. No cloud, no accounts, no telemetry.
 
@@ -44,6 +46,33 @@ docker compose up -d
 ```
 
 Open **http://your-server:8080** and start building your dashboard.
+
+## Widgets
+
+| Widget | Description |
+|--------|-------------|
+| **System Metrics** | Live CPU, RAM, and temperature gauges |
+| **Gauge** | Single metric (CPU / RAM / temp) with color-coded arc |
+| **Network** | Fluid scrolling upload/download chart; configurable time window |
+| **Storage** | Disk usage bars for all mounted filesystems |
+| **Clock** | Timezone-aware clock with optional NTP sync |
+| **Weather** | Current conditions + 5-day forecast (imperial or metric) |
+| **Calendar** | Upcoming events from any iCal feed (Google, Apple, self-hosted) |
+| **Quick Links** | Icon grid of bookmarks; supports emoji or image URLs |
+| **Services** | Ping-based uptime monitor for any HTTP endpoint |
+| **Alerts** | In-dashboard alert center |
+| **Containers** | Docker container status and CPU stats |
+| **Home Assistant** | Live entity states; pick specific entities to display |
+| **Sonarr** | Series list, queue, and version |
+| **Radarr** | Movie list, queue, and version |
+| **Lidarr** | Artist list, queue, and version |
+| **qBittorrent** | Active torrents and transfer stats |
+| **SABnzbd** | Active downloads and queue |
+| **OPNsense** | Firewall version and system stats |
+| **Pi-hole** | DNS query stats and blocking status |
+| **AdGuard Home** | DNS filtering stats |
+| **Plex** | Active streams and library stats |
+| **Tautulli** | Plex watch history and stats |
 
 ## Connecting Services
 

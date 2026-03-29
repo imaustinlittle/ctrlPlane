@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { isBlockedUrl } from '../lib/ssrf'
 
 interface ProxyBody {
   url:      string
@@ -7,33 +8,21 @@ interface ProxyBody {
   body?:    string
 }
 
-// ── SSRF protection ────────────────────────────────────────────────────────────
-// Block loopback and cloud-metadata endpoints. Private LAN IPs (192.168.x.x,
-// 10.x.x.x, etc.) are intentionally allowed — this is a homelab dashboard and
-// users need to reach their local services.
-const BLOCKED_HOSTNAMES = new Set([
-  'localhost',
-  '127.0.0.1',
-  '::1',
-  '[::1]',
-  '0.0.0.0',
-  '169.254.169.254',  // AWS / GCP / Azure metadata
-  '169.254.170.2',    // ECS task metadata
-  // Internal Docker service names that should never be reachable from widgets
-  'redis',
-  'postgres',
-  'ctrlplane-redis',
-  'ctrlplane-postgres',
-  'ctrlplane-api',
+const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
+
+// Headers that must not be forwarded — they affect connection/framing semantics
+// and could enable HTTP request smuggling or fingerprinting.
+const BLOCKED_HEADERS = new Set([
+  'host', 'connection', 'transfer-encoding', 'content-length',
+  'keep-alive', 'upgrade', 'proxy-authorization', 'te', 'trailer',
 ])
 
-function isBlockedUrl(raw: string): boolean {
-  try {
-    const { hostname } = new URL(raw)
-    return BLOCKED_HOSTNAMES.has(hostname.toLowerCase())
-  } catch {
-    return true   // unparseable URL → block
+function sanitizeHeaders(raw: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (!BLOCKED_HEADERS.has(k.toLowerCase())) out[k] = v
   }
+  return out
 }
 
 // ── Route ──────────────────────────────────────────────────────────────────────
@@ -45,16 +34,21 @@ export async function proxyRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Only http/https URLs are allowed' })
     }
 
+    const upperMethod = method.toUpperCase()
+    if (!ALLOWED_METHODS.has(upperMethod)) {
+      return reply.status(400).send({ error: `HTTP method '${method}' is not allowed` })
+    }
+
     if (isBlockedUrl(url)) {
       return reply.status(403).send({ error: 'Target host is not allowed' })
     }
 
     try {
       const res = await fetch(url, {
-        method,
-        headers,
-        body: body ?? undefined,
-        signal: AbortSignal.timeout(12_000),
+        method:  upperMethod,
+        headers: sanitizeHeaders(headers),
+        body:    body ?? undefined,
+        signal:  AbortSignal.timeout(12_000),
       })
 
       const text = await res.text()
@@ -69,7 +63,6 @@ export async function proxyRoutes(app: FastifyInstance) {
       const code = e.code ?? ''
       const msg  = e.message ?? String(err)
 
-      // Classify network errors into meaningful categories
       if (['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ENETUNREACH', 'EHOSTUNREACH'].includes(code)) {
         return reply.status(502).send({ error: `Service unreachable (${code}): check that the host/port is correct and the service is running` })
       }
