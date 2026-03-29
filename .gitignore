@@ -24,6 +24,7 @@ data/
 # Editor
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 .DS_Store
