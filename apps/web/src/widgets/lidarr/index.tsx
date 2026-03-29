@@ -39,12 +39,12 @@ function LidarrWidget({ config }: WidgetProps<LidarrConfig>) {
 
   return (
     <div className="widget-body" style={{ padding: '10px 14px', gap: 8 }}>
-      <div style={{ fontSize: 10, color: 'var(--text2)', textAlign: 'right' }}>v{data.version}</div>
       <div style={{ display: 'flex', gap: 8 }}>
         <StatCard label="Artists" value={data.artists} color="var(--accent)" />
         <StatCard label="Queue"   value={data.queue}   color="var(--accent-y)" />
         <StatCard label="Missing" value={data.missing} color="var(--accent-r)" />
       </div>
+      <div style={{ fontSize: 10, color: 'var(--text2)', textAlign: 'right' }}>v{data.version}</div>
     </div>
   )
 }
@@ -53,5 +53,5 @@ export const lidarrWidget: WidgetDefinition = {
   type: 'lidarr', displayName: 'Lidarr', category: 'media',
   description: 'Music library queue and missing albums',
   icon: <img src={LOGO} style={{ width: 18, height: 18, objectFit: 'contain' }} />,
-  defaultW: 3, defaultH: 2, minW: 2, minH: 2, component: LidarrWidget,
+  defaultW: 2, defaultH: 2, minW: 2, minH: 2, component: LidarrWidget,
 }
