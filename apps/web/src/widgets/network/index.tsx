@@ -27,7 +27,13 @@ function drawChart(
   const startTs = now - windowMs
 
   // Only work with points that are within or just before the window
-  const pts = history.filter(p => p.ts >= startTs - 8_000)
+  // Always append a synthetic "now" point so the line reaches the right edge
+  // and scrolls continuously between API polls
+  const last = history[history.length - 1]
+  const withNow = last
+    ? [...history, { ts: now, up: last.up, down: last.down }]
+    : history
+  const pts = withNow.filter(p => p.ts >= startTs - 8_000)
   if (pts.length < 2) return
 
   const maxVal = Math.max(1, ...pts.map(p => Math.max(p.up, p.down)))
