@@ -6,9 +6,9 @@ export const DEFAULT_PAGES: DashboardPage[] = [
     name: 'Overview',
     icon: '⬡',
     layout: [
-      { i: 'clock',      x: 0,  y: 0, w: 2, h: 3, minW: 2, minH: 2 },
-      { i: 'weather',    x: 2,  y: 0, w: 2, h: 3, minW: 2, minH: 3 },
-      { i: 'sysmetrics', x: 4,  y: 0, w: 6, h: 2, minW: 3, minH: 2 },
+      { i: 'clock',      x: 0,  y: 0, w: 2, h: 4, minW: 2, minH: 2 },
+      { i: 'weather',    x: 2,  y: 0, w: 2, h: 4, minW: 2, minH: 3 },
+      { i: 'sysmetrics', x: 4,  y: 0, w: 8, h: 2, minW: 3, minH: 2 },
       { i: 'services',   x: 0,  y: 3, w: 4, h: 5, minW: 3, minH: 3 },
       { i: 'alerts',     x: 4,  y: 3, w: 4, h: 5, minW: 3, minH: 3 },
       { i: 'containers', x: 8,  y: 3, w: 4, h: 5, minW: 2, minH: 2 },

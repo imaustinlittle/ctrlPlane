@@ -243,29 +243,51 @@ export async function systemRoutes(app: FastifyInstance) {
     const { location = 'Smyrna, GA', units = 'imperial' } = req.query
     try {
       interface GeoResult { results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string }> }
-      const geoRes = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`,
-        { signal: AbortSignal.timeout(8_000) },
-      )
-      const geo = await geoRes.json() as GeoResult
+
+      // Try full location string first; fall back to just the city name (before any comma)
+      const cityOnly = location.split(',')[0].trim()
+      let geo: GeoResult = {}
+      for (const q of [location, cityOnly]) {
+        const r = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`,
+          { signal: AbortSignal.timeout(8_000) },
+        )
+        geo = await r.json() as GeoResult
+        if (geo.results?.length) break
+      }
       if (!geo.results?.length) return reply.status(404).send({ error: `Location not found: ${location}` })
 
       const { latitude, longitude, name, admin1 } = geo.results[0]
       const displayLocation = admin1 ? `${name}, ${admin1}` : name
-      const tempUnit  = units === 'metric' ? 'celsius'    : 'fahrenheit'
-      const windUnit  = units === 'metric' ? 'kmh'        : 'mph'
+      const tempUnit = units === 'metric' ? 'celsius'    : 'fahrenheit'
+      const windUnit = units === 'metric' ? 'kmh'        : 'mph'
 
       interface WxResponse {
         current: { temperature_2m: number; relative_humidity_2m: number; wind_speed_10m: number; weather_code: number }
+        daily:   { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[] }
       }
       const wxRes = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
         `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=6` +
         `&temperature_unit=${tempUnit}&wind_speed_unit=${windUnit}&timezone=auto`,
         { signal: AbortSignal.timeout(8_000) },
       )
       const wx = await wxRes.json() as WxResponse
       const { condition, emoji } = wmoCode(wx.current.weather_code)
+
+      const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      // Skip index 0 (today); return the next 5 days
+      const forecast = wx.daily.time.slice(1, 6).map((date, i) => {
+        const idx = i + 1
+        const d   = new Date(date + 'T12:00:00')
+        return {
+          weekday: DAYS[d.getDay()],
+          emoji:   wmoCode(wx.daily.weather_code[idx]).emoji,
+          high:    Math.round(wx.daily.temperature_2m_max[idx]),
+          low:     Math.round(wx.daily.temperature_2m_min[idx]),
+        }
+      })
 
       return {
         temp:      Math.round(wx.current.temperature_2m),
@@ -275,6 +297,7 @@ export async function systemRoutes(app: FastifyInstance) {
         windSpeed: Math.round(wx.current.wind_speed_10m),
         location:  displayLocation,
         units,
+        forecast,
       }
     } catch (err) {
       return reply.status(502).send({ error: (err as Error).message })

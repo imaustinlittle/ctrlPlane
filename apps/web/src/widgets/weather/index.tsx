@@ -6,6 +6,13 @@ interface WeatherConfig {
   units?:    'imperial' | 'metric'
 }
 
+interface ForecastDay {
+  weekday: string
+  emoji:   string
+  high:    number
+  low:     number
+}
+
 interface WeatherData {
   temp:      number
   condition: string
@@ -14,6 +21,7 @@ interface WeatherData {
   windSpeed: number
   location:  string
   units:     string
+  forecast:  ForecastDay[]
 }
 
 function WeatherWidget({ config }: WidgetProps<WeatherConfig>) {
@@ -33,15 +41,19 @@ function WeatherWidget({ config }: WidgetProps<WeatherConfig>) {
         .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false) } })
     }
     load()
-    const id = setInterval(load, 15 * 60_000)  // refresh every 15 min
+    const id = setInterval(load, 15 * 60_000)
     return () => { cancelled = true; clearInterval(id) }
   }, [location, units])
 
+  const tempUnit  = units === 'metric' ? '°C' : '°F'
+  const windLabel = data ? `${data.windSpeed} ${units === 'metric' ? 'km/h' : 'mph'}` : ''
+
   if (loading && !data) {
     return (
-      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 }}>
+      <div className="widget-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 }}>
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-        <div style={{ width: 80, height: 20, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ width: 80, height: 22, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ width: 120, height: 10, borderRadius: 4, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
       </div>
     )
   }
@@ -56,53 +68,40 @@ function WeatherWidget({ config }: WidgetProps<WeatherConfig>) {
     )
   }
 
-  const windLabel = units === 'metric' ? `${data.windSpeed} km/h` : `${data.windSpeed} mph`
-  const tempUnit  = units === 'metric' ? '°C' : '°F'
-
   return (
-    <div className="widget-body" style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      textAlign: 'center',
-      padding: '8px 12px 14px',
-      gap: 6,
-      overflow: 'hidden',
-    }}>
-      {/* Icon + temp */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <span style={{ fontSize: 'clamp(28px, 5vw, 44px)', lineHeight: 1 }}>{data.emoji}</span>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            fontSize: 'clamp(26px, 5vw, 42px)',
-            fontWeight: 300,
-            letterSpacing: '-2px',
-            lineHeight: 1,
-            color: 'var(--text)',
-            whiteSpace: 'nowrap',
-          }}>
+    <div className="widget-body" style={{ padding: '10px 14px 12px', justifyContent: 'space-between' }}>
+
+      {/* Current conditions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 40, lineHeight: 1, flexShrink: 0 }}>{data.emoji}</span>
+        <div>
+          <div style={{ fontSize: 32, fontWeight: 300, letterSpacing: '-2px', lineHeight: 1, color: 'var(--text)', whiteSpace: 'nowrap' }}>
             {data.temp}{tempUnit}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3, whiteSpace: 'nowrap' }}>
-            {data.condition}
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3 }}>{data.condition}</div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>💧 {data.humidity}%</span>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>💨 {windLabel}</span>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>📍 {data.location}</span>
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
-        {[
-          { icon: '💧', label: `${data.humidity}%` },
-          { icon: '💨', label: windLabel },
-          { icon: '📍', label: data.location },
-        ].map(({ icon, label }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
-            <span>{icon}</span>
-            <span>{label}</span>
+      {/* Divider */}
+      <div style={{ height: 1, background: 'var(--border)', margin: '10px 0' }} />
+
+      {/* 5-day forecast */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+        {data.forecast.map(day => (
+          <div key={day.weekday} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 500 }}>{day.weekday}</span>
+            <span style={{ fontSize: 16 }}>{day.emoji}</span>
+            <span style={{ fontSize: 11, color: 'var(--text)', fontFamily: "'JetBrains Mono', monospace" }}>{day.high}°</span>
+            <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: "'JetBrains Mono', monospace" }}>{day.low}°</span>
           </div>
         ))}
       </div>
+
     </div>
   )
 }
@@ -110,11 +109,11 @@ function WeatherWidget({ config }: WidgetProps<WeatherConfig>) {
 export const weatherWidget: WidgetDefinition<WeatherConfig> = {
   type:        'weather',
   displayName: 'Weather',
-  description: 'Current weather conditions',
+  description: 'Current conditions + 5-day forecast',
   icon:        '🌤',
   category:    'general',
-  defaultW:    2,
-  defaultH:    3,
+  defaultW:    4,
+  defaultH:    4,
   minW:        2,
   minH:        3,
   component:   WeatherWidget,
