@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/imaustinlittle/ctrlPlane/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"/></a>
+  <a href="https://github.com/imaustinlittle/ctrlPlane/blob/main/LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg"/></a>
   &nbsp;
   <img alt="Docker" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white"/>
   &nbsp;
@@ -117,4 +117,4 @@ All options are in `.env.example`. The only required variable is:
 
 ## License
 
-MIT
+GPL-3.0 — see [LICENSE](LICENSE)
