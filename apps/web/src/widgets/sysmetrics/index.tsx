@@ -1,11 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
-
-interface HealthData {
-  cpu:    { usage: number; cores: number; model: string }
-  memory: { percent: number; usedGb: number; totalGb: number }
-  tempC:  number | null
-}
+import { useHealthData } from '../shared/useHealthData'
 
 // ── Mini arc ──────────────────────────────────────────────────────────────────
 const R  = 18
@@ -71,22 +66,7 @@ const DIV = <div style={{ width: 1, background: 'var(--border)', alignSelf: 'str
 
 // ── Widget ─────────────────────────────────────────────────────────────────────
 function SysMetricsWidget(_props: WidgetProps) {
-  const [health,  setHealth]  = useState<HealthData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const load = () => {
-      fetch('/api/system/health')
-        .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
-        .then((d: HealthData) => { if (!cancelled) { setHealth(d); setError(null); setLoading(false) } })
-        .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false) } })
-    }
-    load()
-    const id = setInterval(load, 5_000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [])
+  const { data: health, loading, error } = useHealthData()
 
   if (error) {
     return (
