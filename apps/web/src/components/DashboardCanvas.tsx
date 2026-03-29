@@ -98,11 +98,15 @@ export function DashboardCanvas() {
     return () => { ro.disconnect(); window.removeEventListener('resize', onResize) }
   }, [])
 
-  // Prevent saving layout on initial mount fire from react-grid-layout
-  const isMounted = useRef(false)
-  useEffect(() => {
-    isMounted.current = false
-  }, [page.id])
+  // Prevent saving layout on the initial onLayoutChange fire from react-grid-layout
+  // when the page changes. Reset synchronously during render (not in useEffect)
+  // so the guard is in place before RGL sees the new layout prop.
+  const isMounted    = useRef(false)
+  const prevPageId   = useRef(page.id)
+  if (prevPageId.current !== page.id) {
+    prevPageId.current  = page.id
+    isMounted.current   = false
+  }
 
   // Apply widget definition constraints to layout — runs on every render
   // but is cheap (just a .map) and ensures minW/minH are always correct

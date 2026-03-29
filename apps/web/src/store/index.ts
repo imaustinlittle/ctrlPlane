@@ -157,7 +157,8 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
 
   updateLayout: (pageId, layout) => {
     set((s) => ({ pages: s.pages.map(p => p.id === pageId ? { ...p, layout } : p) }))
-    get()._scheduleSave()
+    // Layout is persisted when the user exits edit mode (toggleEditMode) or
+    // switches tabs (setActivePage). No need to debounce-save on every drag frame.
   },
 
   addWidget: (pageId, widget, layout) => {
