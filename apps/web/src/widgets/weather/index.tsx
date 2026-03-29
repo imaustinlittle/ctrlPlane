@@ -1,49 +1,16 @@
-import { useState, useEffect } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
+import { useWeatherData } from '../shared/useWeatherData'
 
 interface WeatherConfig {
   location?: string
   units?:    'imperial' | 'metric'
 }
 
-interface ForecastDay {
-  weekday: string
-  emoji:   string
-  high:    number
-  low:     number
-}
-
-interface WeatherData {
-  temp:      number
-  condition: string
-  emoji:     string
-  humidity:  number
-  windSpeed: number
-  location:  string
-  units:     string
-  forecast:  ForecastDay[]
-}
-
 function WeatherWidget({ config }: WidgetProps<WeatherConfig>) {
   const location = config?.location ?? 'Atlanta, GA'
   const units    = config?.units    ?? 'imperial'
 
-  const [data,    setData]    = useState<WeatherData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const load = () => {
-      fetch(`/api/system/weather?location=${encodeURIComponent(location)}&units=${units}`)
-        .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
-        .then((d: WeatherData) => { if (!cancelled) { setData(d); setError(null); setLoading(false) } })
-        .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false) } })
-    }
-    load()
-    const id = setInterval(load, 15 * 60_000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [location, units])
+  const { data, loading, error } = useWeatherData(location, units)
 
   const tempUnit  = units === 'metric' ? '°C' : '°F'
   const windLabel = data ? `${data.windSpeed} ${units === 'metric' ? 'km/h' : 'mph'}` : ''

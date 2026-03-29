@@ -1,14 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { WidgetDefinition, WidgetProps } from '../../types'
+import { useNetworkData } from '../shared/useNetworkData'
+import type { NetworkPoint } from '../shared/useNetworkData'
 
 interface NetworkConfig {
   interface?:  string
   timeWindow?: number   // minutes: 1 | 3 | 5 | 10
 }
-
-interface NetworkPoint { ts: number; up: number; down: number }
-
-const MAX_HISTORY = 240   // ~20 min at 5s interval — enough for any window
 
 // ── Canvas chart ──────────────────────────────────────────────────────────────
 function drawChart(
@@ -97,16 +95,17 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
   const windowMin = Number(config?.timeWindow ?? 5)
   const windowMs  = windowMin * 60_000
 
-  const [latest,     setLatest]     = useState({ up: 0, down: 0 })
-  const [loading,    setLoading]    = useState(true)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const { latest, history, loading, error: fetchError } = useNetworkData(iface)
 
   const canvasRef   = useRef<HTMLCanvasElement>(null)
-  const historyRef  = useRef<NetworkPoint[]>([])
+  // historyRef mirrors the module-store history so the rAF loop always reads latest data
+  const historyRef  = useRef<NetworkPoint[]>(history)
   const rafRef      = useRef<number>(0)
   const windowMsRef = useRef(windowMs)
 
-  useEffect(() => { windowMsRef.current = windowMs }, [windowMs])
+  // Keep refs current on every render
+  historyRef.current  = history
+  windowMsRef.current = windowMs
 
   // ── Size canvas via ResizeObserver — never touch dimensions in rAF ─────────
   useEffect(() => {
@@ -134,35 +133,6 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
     rafRef.current = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
-
-  // ── API polling — chained so polls never overlap (API takes ~1s per call) ──
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-
-    const poll = () => {
-      fetch(`/api/system/network?iface=${encodeURIComponent(iface)}`)
-        .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
-        .then((d: { uploadMbps: number; downloadMbps: number }) => {
-          if (cancelled) return
-          const point: NetworkPoint = { ts: Date.now(), up: d.uploadMbps, down: d.downloadMbps }
-          setLatest({ up: d.uploadMbps, down: d.downloadMbps })
-          historyRef.current = [...historyRef.current, point].slice(-MAX_HISTORY)
-          setFetchError(null)
-          setLoading(false)
-          // Schedule next poll 1s after this one completes (~2s total cadence)
-          timer = setTimeout(poll, 1_000)
-        })
-        .catch((e: Error) => {
-          if (!cancelled) { setFetchError(e.message); setLoading(false) }
-          timer = setTimeout(poll, 5_000)  // back off on error
-        })
-    }
-
-    historyRef.current = []
-    poll()
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [iface])
 
   const fmt = (mbps: number) =>
     mbps >= 1000 ? `${(mbps / 1000).toFixed(2)} GB/s`
