@@ -178,6 +178,7 @@ export function SidePanel() {
           transition: 'width 0.28s cubic-bezier(0.4,0,0.2,1)',
           overflow: 'hidden',
           pointerEvents: 'auto',
+          boxShadow: '2px 0 0 0 var(--border-b), 6px 0 32px rgba(0,0,0,0.4)',
         }}
       >
         {/* ── Column 1: Nav rail ───────────────────────────────────────────── */}
