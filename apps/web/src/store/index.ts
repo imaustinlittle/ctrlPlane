@@ -63,6 +63,7 @@ interface DashboardStore {
   removePage:         (pageId: string) => void
   renamePage:         (pageId: string, name: string, icon?: string) => void
   updateWidgetConfig: (pageId: string, widgetId: string, config: Record<string, unknown>) => void
+  moveWidget:         (fromPageId: string, toPageId: string, widgetId: string) => void
   setTheme:           (theme: ThemeConfig) => void
   addAlert:           (alert: AlertEvent) => void
   dismissAlert:       (alertId: string) => void
@@ -185,6 +186,27 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
           ? { ...p, widgets: p.widgets.map(w => w.id === widgetId ? { ...w, config: { ...w.config, ...config } } : w) }
           : p
       ),
+    }))
+    get()._scheduleSave()
+  },
+
+  moveWidget: (fromPageId, toPageId, widgetId) => {
+    const s = get()
+    const fromPage = s.pages.find(p => p.id === fromPageId)
+    if (!fromPage) return
+    const widget = fromPage.widgets.find(w => w.id === widgetId)
+    if (!widget) return
+    // Place at bottom of destination page
+    const toPage = s.pages.find(p => p.id === toPageId)
+    const maxY = toPage ? Math.max(0, ...toPage.layout.map(l => l.y + l.h)) : 0
+    const srcLayout = fromPage.layout.find(l => l.i === widgetId)
+    const newLayout = srcLayout ? { ...srcLayout, x: 0, y: maxY } : { i: widgetId, x: 0, y: maxY, w: 4, h: 2 }
+    set((s) => ({
+      pages: s.pages.map(p => {
+        if (p.id === fromPageId) return { ...p, widgets: p.widgets.filter(w => w.id !== widgetId), layout: p.layout.filter(l => l.i !== widgetId) }
+        if (p.id === toPageId)   return { ...p, widgets: [...p.widgets, widget], layout: [...p.layout, newLayout] }
+        return p
+      }),
     }))
     get()._scheduleSave()
   },

@@ -250,9 +250,9 @@ export function TabManager({ onClose }: Props) {
           )}
         </div>
 
-        {/* Footer note about moving widgets */}
+        {/* Footer note */}
         <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text2)', flexShrink: 0 }}>
-          💡 To move a widget to another tab, remove it here and add it on the destination tab.
+          💡 To move a widget between tabs, click ··· on any widget in edit mode.
         </div>
       </div>
 

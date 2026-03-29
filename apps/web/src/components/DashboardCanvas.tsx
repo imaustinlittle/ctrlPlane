@@ -3,6 +3,7 @@ import ReactGridLayout, { type Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useDashboardStore, useActivePage } from '../store'
+import type { DashboardPage } from '../types'
 import { getWidget } from '../widgets/registry'
 import { WidgetCard } from './WidgetCard'
 import type { WidgetInstance, WidgetLayout } from '../types'
@@ -20,13 +21,16 @@ function calcRowHeight(): number {
 const MemoWidgetCard = memo(function MemoWidgetCard({
   instance,
   pageId,
+  pages,
   isEditing,
 }: {
   instance:  WidgetInstance
   pageId:    string
+  pages:     DashboardPage[]
   isEditing: boolean
 }) {
   const removeWidget = useDashboardStore(s => s.removeWidget)
+  const moveWidget   = useDashboardStore(s => s.moveWidget)
   const def = getWidget(instance.type)
   if (!def) return null
 
@@ -34,8 +38,11 @@ const MemoWidgetCard = memo(function MemoWidgetCard({
     <WidgetCard
       definition={def}
       instance={instance}
+      pageId={pageId}
+      pages={pages}
       isEditing={isEditing}
       onRemove={() => removeWidget(pageId, instance.id)}
+      onMove={(toPageId) => moveWidget(pageId, toPageId, instance.id)}
     />
   )
 })
@@ -68,6 +75,7 @@ function applyDefinitionConstraints(
 
 export function DashboardCanvas() {
   const page         = useActivePage()
+  const pages        = useDashboardStore(s => s.pages)
   const isEditing    = useDashboardStore(s => s.isEditing)
   const updateLayout = useDashboardStore(s => s.updateLayout)
 
@@ -171,6 +179,7 @@ export function DashboardCanvas() {
             <MemoWidgetCard
               instance={instance}
               pageId={page.id}
+              pages={pages}
               isEditing={isEditing}
             />
           </div>
