@@ -33,15 +33,32 @@ export function Topbar() {
   const isEditing    = useDashboardStore(s => s.isEditing)
   const theme        = useDashboardStore(s => s.theme)
   const saveStatus   = useDashboardStore(s => s.saveStatus)
-  const allAlerts       = useDashboardStore(s => s.alerts)
+  const allAlerts        = useDashboardStore(s => s.alerts)
   const dismissAllAlerts = useDashboardStore(s => s.dismissAllAlerts)
   const setActivePage    = useDashboardStore(s => s.setActivePage)
   const toggleEditMode   = useDashboardStore(s => s.toggleEditMode)
+  const removePage       = useDashboardStore(s => s.removePage)
 
   const alerts    = useMemo(() => allAlerts.filter(a => a.status === 'firing'), [allAlerts])
   const critCount = useMemo(() => alerts.filter(a => a.severity === 'critical').length, [alerts])
 
-  const [showTabs, setShowTabs] = useState(false)
+  const [showTabs,       setShowTabs]       = useState(false)
+  const [confirmTabId,   setConfirmTabId]   = useState<string | null>(null)
+
+  const handleRemoveTab = (pageId: string, e: { stopPropagation(): void }) => {
+    e.stopPropagation()
+    if (confirmTabId === pageId) {
+      removePage(pageId)
+      if (activePageId === pageId) {
+        const next = pages.find((p: { id: string }) => p.id !== pageId)
+        setActivePage(next?.id ?? pages[0].id)
+      }
+      setConfirmTabId(null)
+    } else {
+      setConfirmTabId(pageId)
+      setTimeout(() => setConfirmTabId(null), 2500)
+    }
+  }
 
   const statusColor =
     saveStatus === 'saved' ? 'var(--accent-g)' :
@@ -120,6 +137,22 @@ export function Topbar() {
               >
                 {page.icon && <span style={{ fontSize: 12 }}>{page.icon}</span>}
                 {page.name}
+                {isEditing && pages.length > 1 && (
+                  <span
+                    onClick={(e: { stopPropagation(): void }) => handleRemoveTab(page.id, e)}
+                    title={confirmTabId === page.id ? 'Click again to confirm' : 'Remove tab'}
+                    style={{
+                      marginLeft: 2,
+                      fontSize: 10,
+                      lineHeight: 1,
+                      color: confirmTabId === page.id ? 'var(--accent-r)' : 'var(--text2)',
+                      opacity: confirmTabId === page.id ? 1 : 0.6,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {confirmTabId === page.id ? '?' : '×'}
+                  </span>
+                )}
               </button>
             )
           })}
