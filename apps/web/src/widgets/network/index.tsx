@@ -21,19 +21,15 @@ function drawChart(
   const w = canvas.width
   const h = canvas.height
   ctx.clearRect(0, 0, w, h)
-  if (history.length < 2) return
+  if (history.length < 1) return
 
   const now     = Date.now()
   const startTs = now - windowMs
 
-  // Only work with points that are within or just before the window
-  // Always append a synthetic "now" point so the line reaches the right edge
-  // and scrolls continuously between API polls
-  const last = history[history.length - 1]
-  const withNow = last
-    ? [...history, { ts: now, up: last.up, down: last.down }]
-    : history
-  const pts = withNow.filter(p => p.ts >= startTs - 8_000)
+  // Append a synthetic "now" point so the line always reaches the right edge
+  const last    = history[history.length - 1]
+  const withNow = [...history, { ts: now, up: last.up, down: last.down }]
+  const pts     = withNow.filter(p => p.ts >= startTs - 8_000)
   if (pts.length < 2) return
 
   const maxVal = Math.max(1, ...pts.map(p => Math.max(p.up, p.down)))
@@ -139,10 +135,12 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  // ── API polling ────────────────────────────────────────────────────────────
+  // ── API polling — chained so polls never overlap (API takes ~1s per call) ──
   useEffect(() => {
     let cancelled = false
-    const load = () => {
+    let timer: ReturnType<typeof setTimeout>
+
+    const poll = () => {
       fetch(`/api/system/network?iface=${encodeURIComponent(iface)}`)
         .then(r => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? `HTTP ${r.status}`) }))
         .then((d: { uploadMbps: number; downloadMbps: number }) => {
@@ -152,14 +150,18 @@ function NetworkWidget({ config }: WidgetProps<NetworkConfig>) {
           historyRef.current = [...historyRef.current, point].slice(-MAX_HISTORY)
           setFetchError(null)
           setLoading(false)
+          // Schedule next poll 1s after this one completes (~2s total cadence)
+          timer = setTimeout(poll, 1_000)
         })
-        .catch((e: Error) => { if (!cancelled) { setFetchError(e.message); setLoading(false) } })
+        .catch((e: Error) => {
+          if (!cancelled) { setFetchError(e.message); setLoading(false) }
+          timer = setTimeout(poll, 5_000)  // back off on error
+        })
     }
-    // Reset history when iface changes
+
     historyRef.current = []
-    load()
-    const id = setInterval(load, 5_000)
-    return () => { cancelled = true; clearInterval(id) }
+    poll()
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [iface])
 
   const fmt = (mbps: number) =>
