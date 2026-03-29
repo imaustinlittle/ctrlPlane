@@ -292,6 +292,7 @@ export const ALERTS_SCHEMA: ConfigSchema = {
 // Maps widget type → its config schema
 
 export const WIDGET_SCHEMAS: Record<string, ConfigSchema> = {
+  sysmetrics:    { fields: [] },
   clock:         CLOCK_SCHEMA,
   weather:       WEATHER_SCHEMA,
   gauge:         GAUGE_SCHEMA,

@@ -8,9 +8,7 @@ export const DEFAULT_PAGES: DashboardPage[] = [
     layout: [
       { i: 'clock',      x: 0,  y: 0, w: 2, h: 3, minW: 2, minH: 2 },
       { i: 'weather',    x: 2,  y: 0, w: 2, h: 3, minW: 2, minH: 3 },
-      { i: 'cpu',        x: 4,  y: 0, w: 2, h: 2, minW: 2, minH: 2 },
-      { i: 'ram',        x: 6,  y: 0, w: 2, h: 2, minW: 2, minH: 2 },
-      { i: 'temp',       x: 8,  y: 0, w: 2, h: 2, minW: 2, minH: 2 },
+      { i: 'sysmetrics', x: 4,  y: 0, w: 6, h: 2, minW: 3, minH: 2 },
       { i: 'services',   x: 0,  y: 3, w: 4, h: 5, minW: 3, minH: 3 },
       { i: 'alerts',     x: 4,  y: 3, w: 4, h: 5, minW: 3, minH: 3 },
       { i: 'containers', x: 8,  y: 3, w: 4, h: 5, minW: 2, minH: 2 },
@@ -21,9 +19,7 @@ export const DEFAULT_PAGES: DashboardPage[] = [
     widgets: [
       { id: 'clock',      type: 'clock',      config: { timezone: 'local', showSeconds: true } },
       { id: 'weather',    type: 'weather',    config: { location: 'Smyrna, GA', units: 'imperial' } },
-      { id: 'cpu',        type: 'gauge',      config: { label: 'CPU', metric: 'cpu', color: 'green', unit: '%', subtitle: '16 cores · 3.2 GHz' } },
-      { id: 'ram',        type: 'gauge',      config: { label: 'Memory', metric: 'ram', color: 'purple', unit: '%', subtitle: '48.2 / 64 GB' } },
-      { id: 'temp',       type: 'gauge',      config: { label: 'Thermals', metric: 'temp', color: 'yellow', unit: '°C', subtitle: 'CPU' } },
+      { id: 'sysmetrics', type: 'sysmetrics',  config: {} },
       { id: 'services',   type: 'services',   config: {} },
       { id: 'alerts',     type: 'alerts',     config: {} },
       { id: 'containers', type: 'containers', config: {} },
