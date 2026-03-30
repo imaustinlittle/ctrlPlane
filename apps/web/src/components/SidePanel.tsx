@@ -255,7 +255,7 @@ export function SidePanel() {
 
               {/* Version */}
               <div style={{ padding: '8px 16px', fontSize: 10, color: 'var(--text2)', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                ctrlPlane
+                ctrlPlane v{__APP_VERSION__}
               </div>
             </>
           )}
