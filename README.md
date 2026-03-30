@@ -18,6 +18,12 @@
 
 ---
 
+<p align="center">
+  <img src=".github/assets/screenshot.png" alt="ctrlPlane dashboard screenshot" width="100%"/>
+</p>
+
+---
+
 ## What is ctrlPlane?
 
 ctrlPlane is a drag-and-drop homelab dashboard you run on your own server. Connect it to your existing services — Proxmox, Docker, Home Assistant, Pi-hole — and pull their live data into resizable widgets arranged exactly how you want them. Your layout, your data, your server.
