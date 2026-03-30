@@ -80,12 +80,13 @@ export interface WidgetDefinition<TConfig = Record<string, unknown>, TData = unk
 // ── Theme ───────────────────────────────────────────────────────────────────
 
 export interface ThemeConfig {
-  id: string
-  name: string
-  accent: string
-  bg?: string
-  surface?: string
-  background?: string
+  id:              string
+  name:            string
+  accent:          string
+  bg?:             string
+  surface?:        string
+  background?:     string
+  backgroundImage?: string  // URL for a custom background image
 }
 
 export const BUILT_IN_THEMES: ThemeConfig[] = [

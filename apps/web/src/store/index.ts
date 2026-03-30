@@ -40,8 +40,20 @@ function makeDemoAlerts(): AlertEvent[] {
 export function applyTheme(theme: ThemeConfig) {
   const root = document.documentElement.style
   root.setProperty('--accent', theme.accent)
-  if (theme.bg)      root.setProperty('--bg', theme.bg)
+  if (theme.bg)      root.setProperty('--bg',      theme.bg)
   if (theme.surface) root.setProperty('--surface', theme.surface)
+  // Background image applied directly to body so it layers under the gradient overlay
+  if (theme.backgroundImage) {
+    document.body.style.backgroundImage    = `url(${theme.backgroundImage})`
+    document.body.style.backgroundSize     = 'cover'
+    document.body.style.backgroundPosition = 'center'
+    document.body.style.backgroundAttachment = 'fixed'
+  } else {
+    document.body.style.backgroundImage    = ''
+    document.body.style.backgroundSize     = ''
+    document.body.style.backgroundPosition = ''
+    document.body.style.backgroundAttachment = ''
+  }
 }
 
 // ── Store interface ───────────────────────────────────────────────────────────
