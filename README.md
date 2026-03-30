@@ -12,6 +12,8 @@
   <img alt="Docker" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white"/>
   &nbsp;
   <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white"/>
+  &nbsp;
+  <a href="https://discord.gg/mgGTxY55"><img alt="Discord" src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white"/></a>
 </p>
 
 ---
