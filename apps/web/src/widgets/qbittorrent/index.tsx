@@ -65,10 +65,6 @@ function QbitWidget({ config }: WidgetProps<QbitConfig>) {
 
   return (
     <div className="widget-body" style={{ padding: '12px 14px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src={LOGO} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-        <span style={{ fontWeight: 600, fontSize: 14 }}>qBittorrent</span>
-      </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <StatCard label="↓ Download" value={fmtSpeed(data.dlSpeed)} color="var(--accent)"   fontSize={15} />
         <StatCard label="↑ Upload"   value={fmtSpeed(data.ulSpeed)} color="var(--accent-g)" fontSize={15} />

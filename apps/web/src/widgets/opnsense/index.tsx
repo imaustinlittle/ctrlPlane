@@ -47,11 +47,6 @@ function OPNsenseWidget({ config }: WidgetProps<OPNsenseConfig>) {
 
   return (
     <div className="widget-body" style={{ padding: '12px 14px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src={LOGO} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-        <span style={{ fontWeight: 600, fontSize: 14 }}>OPNsense</span>
-        <span style={{ fontSize: 10, color: 'var(--text2)', marginLeft: 'auto' }}>v{data.version}</span>
-      </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <StatCard label="Version"  value={data.version} color="var(--accent)" fontSize={16} />
         <StatCard label="Gateways" value={`${data.gatewaysOnline}/${data.gatewaysTotal}`} color={gwColor} fontSize={16} />

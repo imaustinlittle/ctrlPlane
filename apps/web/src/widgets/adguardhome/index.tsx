@@ -47,14 +47,6 @@ function AdGuardWidget({ config }: WidgetProps<AdGuardConfig>) {
 
   return (
     <div className="widget-body" style={{ padding: '12px 14px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src={LOGO} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-        <span style={{ fontWeight: 600, fontSize: 14 }}>AdGuard Home</span>
-        <span style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 500,
-          color: data.running ? 'var(--accent-g)' : 'var(--accent-r)' }}>
-          {data.running ? 'Running' : 'Stopped'}
-        </span>
-      </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <StatCard label="DNS Queries" value={data.queries.toLocaleString()} fontSize={16} />
         <StatCard label="Blocked"     value={data.blocked.toLocaleString()} color="var(--accent-r)" fontSize={16} />

@@ -38,11 +38,6 @@ function SabWidget({ config }: WidgetProps<SabConfig>) {
 
   return (
     <div className="widget-body" style={{ padding: '12px 14px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src={LOGO} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-        <span style={{ fontWeight: 600, fontSize: 14 }}>SABnzbd</span>
-        <span style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 500, color: statusColor }}>{data.status}</span>
-      </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <StatCard label="Speed"     value={data.speed    || '0 B/s'} color="var(--accent)"  fontSize={15} />
         <StatCard label="Remaining" value={data.sizeLeft || '0 B'}   fontSize={15} />

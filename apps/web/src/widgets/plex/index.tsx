@@ -48,14 +48,6 @@ function PlexWidget({ config }: WidgetProps<PlexConfig>) {
 
   return (
     <div className="widget-body" style={{ padding: '12px 14px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <img src={LOGO} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-        <span style={{ fontWeight: 600, fontSize: 14 }}>Plex</span>
-        <span style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 500,
-          color: data.streams > 0 ? 'var(--accent-g)' : 'var(--text2)' }}>
-          {data.streams} stream{data.streams !== 1 ? 's' : ''}
-        </span>
-      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {data.libraries.map(lib => (
           <div key={lib.title} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 8 }}>
