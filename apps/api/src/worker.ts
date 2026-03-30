@@ -6,8 +6,10 @@
 
 import { Queue, Worker, type Job } from 'bullmq'
 import IORedis from 'ioredis'
-import { eq } from 'drizzle-orm'
+import { eq, isNull } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
+import os from 'os'
+import { promises as fs } from 'fs'
 import { db, initDb } from './db/index.js'
 import { integrations, alertRules, alertEvents, notificationChannels } from './db/schema.js'
 import { decrypt } from './lib/crypto.js'
@@ -154,16 +156,25 @@ async function getWidgetTypesForIntegration(integrationId: string): Promise<stri
 }
 
 /**
- * Safely evaluate a simple expression like "cpu > 80" or "ram >= 90"
- * against a flat data object. Only supports basic comparisons.
+ * Resolve a dotted path like "cpu.usage" from a nested object.
+ */
+function getNestedValue(obj: unknown, path: string): unknown {
+  return path.split('.').reduce((acc: unknown, key) => {
+    if (acc !== null && typeof acc === 'object') return (acc as Record<string, unknown>)[key]
+    return undefined
+  }, obj)
+}
+
+/**
+ * Safely evaluate a simple expression like "cpu.usage > 80" or "memory.percent >= 90"
+ * against a nested data object. Only supports basic numeric comparisons.
  */
 function evalExpression(expr: string, data: Record<string, unknown>): boolean {
-  // Only allow: identifier op number (e.g. "cpu > 80", "ram >= 90.5")
-  const match = expr.trim().match(/^(\w+)\s*(>=|<=|>|<|===?|!==?)?\s*(-?\d+(?:\.\d+)?)$/)
+  const match = expr.trim().match(/^([\w.]+)\s*(>=|<=|>|<|===?|!==?)\s*(-?\d+(?:\.\d+)?)$/)
   if (!match) return false
 
-  const [, field, op = '>', threshold] = match
-  const val = data[field]
+  const [, field, op, threshold] = match
+  const val = getNestedValue(data, field)
   if (typeof val !== 'number') return false
 
   const t = parseFloat(threshold)
@@ -211,6 +222,75 @@ async function fireAlert(
     if (!result.ok) {
       console.warn(`[worker] Notification to ${channel.name} failed: ${result.error}`)
     }
+  }
+}
+
+// ── System metric alert evaluation ───────────────────────────────────────────
+// Runs every 30s; evaluates rules with no integrationId against live OS stats.
+
+async function collectSystemMetrics(): Promise<Record<string, unknown>> {
+  const cpus     = os.cpus()
+  const totalMem = os.totalmem()
+  const freeMem  = os.freemem()
+  const usedMem  = totalMem - freeMem
+
+  const cpuUsage = cpus.reduce((sum, cpu) => {
+    const total = Object.values(cpu.times).reduce((a, b) => a + b, 0)
+    return sum + ((total - cpu.times.idle) / total) * 100
+  }, 0) / cpus.length
+
+  let tempC: number | null = null
+  try {
+    const raw = await fs.readFile('/sys/class/thermal/thermal_zone0/temp', 'utf-8')
+    tempC = parseFloat((parseInt(raw.trim()) / 1000).toFixed(1))
+  } catch { /* not available on this platform */ }
+
+  return {
+    cpu: {
+      usage:  parseFloat(cpuUsage.toFixed(1)),
+      cores:  cpus.length,
+    },
+    memory: {
+      totalGb: parseFloat((totalMem / 1073741824).toFixed(1)),
+      usedGb:  parseFloat((usedMem  / 1073741824).toFixed(1)),
+      freeGb:  parseFloat((freeMem  / 1073741824).toFixed(1)),
+      percent: parseFloat(((usedMem / totalMem) * 100).toFixed(1)),
+    },
+    tempC,
+    uptime:  os.uptime(),
+    loadAvg: os.loadavg().map(v => parseFloat(v.toFixed(2))),
+  }
+}
+
+async function evaluateSystemAlertRules(): Promise<void> {
+  const rules = await db.select().from(alertRules)
+    .where(isNull(alertRules.integrationId))
+
+  if (rules.length === 0) return
+
+  let metrics: Record<string, unknown>
+  try { metrics = await collectSystemMetrics() }
+  catch (err) { console.error('[worker] Failed to collect system metrics:', err); return }
+
+  for (const rule of rules) {
+    if (!rule.enabled) continue
+
+    // Cooldown: don't re-fire while already firing within cooldown window
+    const recent = await db.select().from(alertEvents)
+      .where(eq(alertEvents.ruleId, rule.id))
+      .limit(1)
+
+    const last = recent[0]
+    if (last && last.status === 'firing') {
+      const elapsed = Date.now() - new Date(last.firedAt).getTime()
+      if (elapsed < (rule.cooldownSec ?? 300) * 1000) continue
+    }
+
+    try {
+      if (evalExpression(rule.conditionExpr, metrics)) {
+        await fireAlert(rule, metrics)
+      }
+    } catch { /* expression errors are silent */ }
   }
 }
 
@@ -263,6 +343,11 @@ async function bootstrap(): Promise<void> {
   }
 
   console.log(`✅  Worker running — scheduled ${enabled.length} integration(s)`)
+
+  // Evaluate system metric alert rules every 30s
+  await evaluateSystemAlertRules()
+  setInterval(evaluateSystemAlertRules, 30_000)
+  console.log('✅  System metric alert evaluator running (30s interval)')
 }
 
 bootstrap().catch(err => {

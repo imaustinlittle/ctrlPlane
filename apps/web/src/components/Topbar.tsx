@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useDashboardStore } from '../store'
 import { TabManager } from './panels/TabManager'
+import { useAlertData, resolveAlertEvent } from '../widgets/shared/useAlertData'
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 const PencilIcon = () => (
@@ -33,13 +34,12 @@ export function Topbar() {
   const isEditing    = useDashboardStore(s => s.isEditing)
   const theme        = useDashboardStore(s => s.theme)
   const saveStatus   = useDashboardStore(s => s.saveStatus)
-  const allAlerts        = useDashboardStore(s => s.alerts)
-  const dismissAllAlerts = useDashboardStore(s => s.dismissAllAlerts)
-  const setActivePage    = useDashboardStore(s => s.setActivePage)
-  const toggleEditMode   = useDashboardStore(s => s.toggleEditMode)
-  const removePage       = useDashboardStore(s => s.removePage)
+  const setActivePage  = useDashboardStore(s => s.setActivePage)
+  const toggleEditMode = useDashboardStore(s => s.toggleEditMode)
+  const removePage     = useDashboardStore(s => s.removePage)
 
-  const alerts    = useMemo(() => allAlerts.filter(a => a.status === 'firing'), [allAlerts])
+  const { events } = useAlertData()
+  const alerts    = useMemo(() => events.filter(a => a.status === 'firing'), [events])
   const critCount = useMemo(() => alerts.filter(a => a.severity === 'critical').length, [alerts])
 
   const [showTabs,       setShowTabs]       = useState(false)
@@ -187,7 +187,7 @@ export function Topbar() {
               border: `1px solid ${critCount > 0 ? 'rgba(247,129,102,0.3)' : 'rgba(255,166,87,0.3)'}`,
               color: critCount > 0 ? 'var(--accent-r)' : 'var(--accent-y)',
             }}
-            onClick={dismissAllAlerts}
+            onClick={() => alerts.forEach((a: { id: string }) => resolveAlertEvent(a.id))}
           >
             <span className="animate-pulse-dot" style={{
               width: 6, height: 6, borderRadius: '50%', display: 'inline-block',

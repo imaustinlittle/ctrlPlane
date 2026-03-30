@@ -4,37 +4,11 @@ import type {
   WidgetInstance,
   WidgetLayout,
   ThemeConfig,
-  AlertEvent,
 } from '../types'
 import { BUILT_IN_THEMES } from '../types'
 import { DEFAULT_PAGES } from './defaults'
 import { loadState, scheduleSave, saveState } from './apiState'
 import { addToast } from '../components/Toast'
-
-// ── Demo alerts — fresh timestamps every load ────────────────────────────────
-function makeDemoAlerts(): AlertEvent[] {
-  const now = Date.now()
-  return [
-    {
-      id: 'a1', ruleId: 'r1', ruleName: '[Demo] Sonarr offline',
-      widgetId: 'services', severity: 'critical', status: 'firing',
-      message: '[Demo] Sonarr unreachable — container exited unexpectedly',
-      firedAt: new Date(now - 2 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'a2', ruleId: 'r2', ruleName: '[Demo] Proxmox latency',
-      widgetId: 'services', severity: 'warning', status: 'firing',
-      message: '[Demo] Proxmox node latency elevated (180ms, threshold 100ms)',
-      firedAt: new Date(now - 8 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'a3', ruleId: 'r3', ruleName: '[Demo] Disk /data high',
-      widgetId: 'storage', severity: 'info', status: 'firing',
-      message: '[Demo] Disk /data at 78% capacity — consider expanding',
-      firedAt: new Date(now - 60 * 60 * 1000).toISOString(),
-    },
-  ]
-}
 
 // ── Apply theme to CSS variables ─────────────────────────────────────────────
 export function applyTheme(theme: ThemeConfig) {
@@ -57,12 +31,11 @@ export function applyTheme(theme: ThemeConfig) {
 }
 
 // ── Store interface ───────────────────────────────────────────────────────────
-interface DashboardStore {
+export interface DashboardStore {
   pages:        DashboardPage[]
   activePageId: string
   isEditing:    boolean
   theme:        ThemeConfig
-  alerts:       AlertEvent[]
   saveStatus:   'idle' | 'saving' | 'saved' | 'error'
   isLoaded:     boolean   // true once API load attempt completes
 
@@ -77,10 +50,6 @@ interface DashboardStore {
   updateWidgetConfig: (pageId: string, widgetId: string, config: Record<string, unknown>) => void
   moveWidget:         (fromPageId: string, toPageId: string, widgetId: string) => void
   setTheme:           (theme: ThemeConfig) => void
-  addAlert:           (alert: AlertEvent) => void
-  dismissAlert:       (alertId: string) => void
-  dismissAllAlerts:   () => void
-  ackAlert:           (alertId: string) => void
   _initFromAPI:       () => Promise<void>
   _scheduleSave:      () => void
 }
@@ -90,7 +59,6 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
   activePageId: DEFAULT_PAGES[0].id,
   isEditing:    false,
   theme:        BUILT_IN_THEMES[0],
-  alerts:       makeDemoAlerts(),
   saveStatus:   'idle',
   isLoaded:     false,
 
@@ -136,17 +104,6 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
           onRetry: () => get()._scheduleSave(),
         })
 
-        // Also log to alert center
-        get().addAlert({
-          id:       `save-err-${Date.now()}`,
-          ruleId:   'system',
-          ruleName: 'Save failed',
-          widgetId: 'system',
-          severity: 'critical',
-          status:   'firing',
-          message:  `Dashboard save failed: ${errMsg}`,
-          firedAt:  new Date().toISOString(),
-        })
       }
     )
   },
@@ -250,20 +207,6 @@ export const useDashboardStore = create<DashboardStore>()((set, get) => ({
     set({ theme })
     applyTheme(theme)
   },
-
-  addAlert: (alert) =>
-    set((s) => ({ alerts: [alert, ...s.alerts].slice(0, 50) })),
-
-  dismissAlert: (alertId) =>
-    set((s) => ({ alerts: s.alerts.filter(a => a.id !== alertId) })),
-  dismissAllAlerts: () => set({ alerts: [] }),
-
-  ackAlert: (alertId) =>
-    set((s) => ({
-      alerts: s.alerts.map(a =>
-        a.id === alertId ? { ...a, status: 'acknowledged', ackedAt: new Date().toISOString() } : a
-      ),
-    })),
 }))
 
 // ── Selectors ─────────────────────────────────────────────────────────────────
@@ -273,7 +216,3 @@ export const useActivePage = () => {
   return pages.find(p => p.id === activePageId) ?? pages[0]
 }
 
-export const useActiveAlerts = () => {
-  const alerts = useDashboardStore(s => s.alerts)
-  return alerts.filter(a => a.status === 'firing')
-}

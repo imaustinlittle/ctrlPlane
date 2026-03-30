@@ -3,9 +3,10 @@ import { IntegrationsPane }     from './panels/IntegrationsPane'
 import { IntegrationDetailPane } from './panels/IntegrationDetailPane'
 import { SettingsPane }          from './panels/SettingsPane'
 import { WidgetsPane }           from './panels/WidgetsPane'
+import { AlertsPane }            from './panels/AlertsPane'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Section = 'integrations' | 'widgets' | 'settings'
+type Section = 'integrations' | 'widgets' | 'alerts' | 'settings'
 
 interface NavItem {
   id:    Section
@@ -32,11 +33,18 @@ const GearIcon = () => (
     <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
   </svg>
 )
+const BellIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
 
 // Settings lives at the bottom — separate from the main nav items
 const TOP_NAV_ITEMS: NavItem[] = [
   { id: 'integrations', label: 'Integrations', icon: <PlugIcon /> },
   { id: 'widgets',      label: 'Widgets',      icon: <GridIcon /> },
+  { id: 'alerts',       label: 'Alerts',       icon: <BellIcon /> },
 ]
 const SETTINGS_ITEM: NavItem = { id: 'settings', label: 'Settings', icon: <GearIcon /> }
 
@@ -326,8 +334,9 @@ export function SidePanel() {
             {section === 'integrations' && (
               <IntegrationsPane selectedKey={detailKey} onSelect={setDetailKey} />
             )}
-            {section === 'widgets'      && <WidgetsPane />}
-            {section === 'settings'     && <SettingsPane />}
+            {section === 'widgets'  && <WidgetsPane />}
+            {section === 'alerts'   && <AlertsPane />}
+            {section === 'settings' && <SettingsPane />}
           </div>
         </div>
 
