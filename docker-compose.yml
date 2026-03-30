@@ -2,9 +2,7 @@ services:
 
   # ── Frontend (Nginx + built React app) ──────────────────────────────────────
   web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+    image: ghcr.io/imaustinlittle/ctrlplane-web:latest
     container_name: ctrlplane-web
     restart: unless-stopped
     ports:
@@ -19,9 +17,7 @@ services:
 
   # ── Backend API (Fastify) ────────────────────────────────────────────────────
   api:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+    image: ghcr.io/imaustinlittle/ctrlplane-api:latest
     container_name: ctrlplane-api
     restart: unless-stopped
     environment:
@@ -53,9 +49,7 @@ services:
 
   # ── Background worker (BullMQ — same image, different CMD) ──────────────────
   worker:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+    image: ghcr.io/imaustinlittle/ctrlplane-api:latest
     container_name: ctrlplane-worker
     restart: unless-stopped
     command: ["node", "dist/worker.js"]
