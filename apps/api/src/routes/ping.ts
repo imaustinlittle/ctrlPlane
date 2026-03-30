@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import https from 'https'
 import http  from 'http'
+import { isBlockedUrl } from '../lib/ssrf.js'
 
 /**
  * Proxy ping endpoint — checks if a URL is reachable from the server.
@@ -34,6 +35,9 @@ export async function pingRoutes(app: FastifyInstance) {
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return reply.status(400).send({ error: 'Only http/https URLs are supported' })
+    }
+    if (isBlockedUrl(normalized)) {
+      return reply.status(403).send({ error: 'Target host is not allowed' })
     }
 
     const isHttps  = parsed.protocol === 'https:'

@@ -213,6 +213,9 @@ export async function systemRoutes(app: FastifyInstance) {
   // Takes ~1 second to respond (reads /proc/net/dev twice)
   app.get<{ Querystring: { iface?: string } }>('/network', async (req, reply) => {
     const iface = req.query.iface ?? 'eth0'
+    if (!/^[a-zA-Z0-9_.-]{1,32}$/.test(iface)) {
+      return reply.status(400).send({ error: 'Invalid interface name' })
+    }
     try {
       const readBytes = async () => {
         const content = await fs.readFile('/proc/net/dev', 'utf-8')

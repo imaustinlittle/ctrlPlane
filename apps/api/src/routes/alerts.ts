@@ -26,19 +26,24 @@ export async function alertRoutes(app: FastifyInstance) {
   }>('/rules', async (req, reply) => {
     const { conditionExpr } = req.body
 
-    // Validate expression — block dangerous tokens
-    const BANNED = ['fetch', 'XMLHttpRequest', 'process', 'require', 'import', 'eval', 'window', 'document']
-    if (BANNED.some(t => conditionExpr.toLowerCase().includes(t))) {
-      return reply.status(400).send({ error: 'Expression contains disallowed tokens' })
+    // Validate expression — allow only: field.path op number (e.g. "cpu.usage > 90")
+    if (!/^[\w.]+\s*(>=|<=|>|<|===?|!==?)\s*-?\d+(\.\d+)?$/.test(conditionExpr.trim())) {
+      return reply.status(400).send({ error: 'Expression must be in the form: field.path op number (e.g. cpu.usage > 90)' })
     }
+
+    const SEVERITIES = new Set(['critical', 'warning', 'info'])
+    if (!req.body.name?.trim()) return reply.status(400).send({ error: 'name is required' })
+    if (!SEVERITIES.has(req.body.severity)) return reply.status(400).send({ error: 'severity must be critical, warning, or info' })
+    const cooldownSec = req.body.cooldownSec ?? 300
+    if (cooldownSec < 1 || cooldownSec > 86400) return reply.status(400).send({ error: 'cooldownSec must be between 1 and 86400' })
 
     const rule = {
       id:            randomUUID(),
       integrationId: req.body.integrationId ?? null,
-      name:          req.body.name,
+      name:          req.body.name.trim(),
       conditionExpr,
       severity:      req.body.severity,
-      cooldownSec:   req.body.cooldownSec ?? 300,
+      cooldownSec,
       enabled:       true,
       createdAt:     new Date().toISOString(),
     }
@@ -55,11 +60,19 @@ export async function alertRoutes(app: FastifyInstance) {
     const rows = await db.select().from(alertRules).where(eq(alertRules.id, req.params.id))
     if (!rows[0]) return reply.status(404).send({ error: 'Rule not found' })
 
+    const SEVERITIES = new Set(['critical', 'warning', 'info'])
+    if (req.body.severity !== undefined && !SEVERITIES.has(req.body.severity)) {
+      return reply.status(400).send({ error: 'severity must be critical, warning, or info' })
+    }
+    if (req.body.cooldownSec !== undefined && (req.body.cooldownSec < 1 || req.body.cooldownSec > 86400)) {
+      return reply.status(400).send({ error: 'cooldownSec must be between 1 and 86400' })
+    }
+
     const updates: Partial<typeof alertRules.$inferInsert> = {}
-    if (req.body.enabled   !== undefined) updates.enabled    = req.body.enabled
+    if (req.body.enabled     !== undefined) updates.enabled     = req.body.enabled
     if (req.body.cooldownSec !== undefined) updates.cooldownSec = req.body.cooldownSec
-    if (req.body.severity  !== undefined) updates.severity   = req.body.severity
-    if (req.body.name      !== undefined) updates.name       = req.body.name
+    if (req.body.severity    !== undefined) updates.severity    = req.body.severity
+    if (req.body.name        !== undefined) updates.name        = req.body.name.trim()
 
     await db.update(alertRules).set(updates).where(eq(alertRules.id, req.params.id))
     return { id: req.params.id, ...updates, updatedAt: new Date().toISOString() }
