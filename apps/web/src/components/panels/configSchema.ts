@@ -308,14 +308,14 @@ export const ALERTS_SCHEMA: ConfigSchema = {
   ],
 }
 
-const ARR_FIELDS: ConfigField[] = [
-  { key: 'url',    label: 'URL',     type: 'url',      placeholder: 'http://192.168.1.x:8989', required: true },
+const arrFields = (port: number): ConfigField[] => [
+  { key: 'url',    label: 'URL',     type: 'url',      placeholder: `http://192.168.1.x:${port}`, required: true },
   { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Settings → General → Security', required: true },
 ]
 
-export const SONARR_SCHEMA:      ConfigSchema = { fields: ARR_FIELDS }
-export const RADARR_SCHEMA:      ConfigSchema = { fields: ARR_FIELDS }
-export const LIDARR_SCHEMA:      ConfigSchema = { fields: ARR_FIELDS }
+export const SONARR_SCHEMA: ConfigSchema = { fields: arrFields(8989) }
+export const RADARR_SCHEMA: ConfigSchema = { fields: arrFields(7878) }
+export const LIDARR_SCHEMA: ConfigSchema = { fields: arrFields(8686) }
 
 export const QBITTORRENT_SCHEMA: ConfigSchema = {
   fields: [
