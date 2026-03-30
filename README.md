@@ -1,6 +1,6 @@
-<h1 align="center">
-  <code>ctrl</code>Plane
-</h1>
+<p align="center">
+  <img src=".github/assets/ctrlplane-github.png" alt="ctrlPlane" width="100%"/>
+</p>
 
 <p align="center">
   A self-hosted homelab dashboard. Drop in widgets, connect your services, and see everything at a glance — all from your own server.
