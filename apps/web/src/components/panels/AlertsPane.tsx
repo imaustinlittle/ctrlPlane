@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { AlertRule } from '../../widgets/shared/useAlertData'
 import { refreshAlerts } from '../../widgets/shared/useAlertData'
+import { useDashboardStore } from '../../store'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -288,10 +289,18 @@ function CreateRuleForm({ integrations, onCreated, onCancel }: {
 // ── AlertsPane ────────────────────────────────────────────────────────────────
 
 export function AlertsPane() {
+  const pages = useDashboardStore(s => s.pages)
+  const hasAlertsWidget = pages.some(p => p.widgets.some(w => w.type === 'alerts'))
+
   const [rules,        setRules]        = useState<AlertRule[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading,      setLoading]      = useState(true)
   const [creating,     setCreating]     = useState(false)
+
+  // Reset form when widget is removed
+  useEffect(() => {
+    if (!hasAlertsWidget) setCreating(false)
+  }, [hasAlertsWidget])
 
   const loadRules = async () => {
     try {
@@ -342,14 +351,23 @@ export function AlertsPane() {
         <span style={{ fontSize: 12, color: 'var(--text2)' }}>
           {rules.length} rule{rules.length !== 1 ? 's' : ''}
         </span>
-        {!creating && (
+        {!creating && hasAlertsWidget && (
           <button style={btnStyle('primary')} onClick={() => setCreating(true)}>+ New rule</button>
         )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
+        {/* No widget notice */}
+        {!hasAlertsWidget && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text2)', fontSize: 12, padding: '40px 0', textAlign: 'center' }}>
+            <span style={{ fontSize: 28 }}>🔔</span>
+            <span style={{ fontWeight: 500, color: 'var(--text)' }}>No Alert Center widget</span>
+            <span style={{ opacity: 0.7 }}>Add the Alert Center widget to a page to create and manage alert rules.</span>
+          </div>
+        )}
+
         {/* Create form */}
-        {creating && (
+        {hasAlertsWidget && creating && (
           <CreateRuleForm
             integrations={integrations}
             onCreated={handleCreated}
@@ -358,7 +376,7 @@ export function AlertsPane() {
         )}
 
         {/* Rules list */}
-        {loading ? (
+        {hasAlertsWidget && (loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {[0, 1, 2].map(i => (
               <div key={i} style={{ height: 56, borderRadius: 6, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
@@ -377,7 +395,7 @@ export function AlertsPane() {
               onDelete={() => handleDelete(rule.id)}
             />
           ))
-        )}
+        ))}
       </div>
     </div>
   )
