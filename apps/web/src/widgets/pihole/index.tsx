@@ -39,8 +39,6 @@ function PiholeWidget({ config }: WidgetProps<PiholeConfig>) {
     [url, apiKey],
   )
 
-  const activeColor = data?.status === 'enabled' ? 'var(--accent-g)' : 'var(--accent-r)'
-
   if (!url || !apiKey)  return <WidgetUnconfigured message="Configure a Pi-hole URL and API token in widget settings." />
   if (loading && !data) return <WidgetSkeleton rows={2} />
   if (error   && !data) return <WidgetError message={error} onRetry={retry} />

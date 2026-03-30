@@ -28,9 +28,6 @@ function SabWidget({ config }: WidgetProps<SabConfig>) {
     [url, apiKey],
   )
 
-  const statusColor = data?.status === 'Downloading' ? 'var(--accent-g)'
-    : data?.status === 'Paused' ? 'var(--accent-y)' : 'var(--text2)'
-
   if (!url || !apiKey)  return <WidgetUnconfigured message="Configure a SABnzbd URL and API key in widget settings." />
   if (loading && !data) return <WidgetSkeleton />
   if (error   && !data) return <WidgetError message={error} onRetry={retry} />
