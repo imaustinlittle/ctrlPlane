@@ -202,43 +202,40 @@ export function SidePanel() {
           onMouseEnter={stage === 0 ? (e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(13,17,23,0.78)' }) : undefined}
           onMouseLeave={stage === 0 ? (e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(13,17,23,0.6)' }) : undefined}
         >
-          {/* Pull-tab chevron — always visible, rotates when open */}
+          {/* Pull-tab chevron — pill style, rotates when open */}
           <button
             onClick={e => { e.stopPropagation(); stage === 0 ? setStage(1) : closeAll() }}
             title={stage === 0 ? 'Open menu' : 'Close menu'}
             style={{
               position: 'absolute', top: '50%', right: 0,
               transform: 'translateY(-50%)',
-              width: 18, height: 64,
-              background: 'none', border: 'none', padding: 0,
+              width: 18, height: 40,
+              background: 'rgba(88,166,255,0.08)',
+              border: '1px solid rgba(88,166,255,0.18)',
+              borderLeft: 'none',
+              borderRadius: '0 6px 6px 0',
+              padding: 0,
               cursor: 'pointer',
               color: 'var(--accent)',
-              opacity: 0.6,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
-              transition: 'opacity 0.15s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.15s, border-color 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(88,166,255,0.16)'
+              e.currentTarget.style.borderColor = 'rgba(88,166,255,0.35)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(88,166,255,0.08)'
+              e.currentTarget.style.borderColor = 'rgba(88,166,255,0.18)'
+            }}
           >
-            {/* tick lines above */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {[0, 1].map(i => (
-                <div key={i} style={{ width: 8, height: 1.5, borderRadius: 1, background: 'currentColor', opacity: 0.45 }} />
-              ))}
-            </div>
             <svg
-              width="10" height="10" viewBox="0 0 24 24"
+              width="9" height="9" viewBox="0 0 24 24"
               fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-              style={{ transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)', transform: stage === 0 ? 'rotate(0deg)' : 'rotate(180deg)', flexShrink: 0 }}
+              style={{ transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)', transform: stage === 0 ? 'rotate(0deg)' : 'rotate(180deg)' }}
             >
               <polyline points="9 18 15 12 9 6"/>
             </svg>
-            {/* tick lines below */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {[0, 1].map(i => (
-                <div key={i} style={{ width: 8, height: 1.5, borderRadius: 1, background: 'currentColor', opacity: 0.45 }} />
-              ))}
-            </div>
           </button>
 
           {stage > 0 && (
