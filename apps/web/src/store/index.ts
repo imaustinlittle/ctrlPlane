@@ -16,21 +16,21 @@ function makeDemoAlerts(): AlertEvent[] {
   const now = Date.now()
   return [
     {
-      id: 'a1', ruleId: 'r1', ruleName: 'Sonarr offline',
+      id: 'a1', ruleId: 'r1', ruleName: '[Demo] Sonarr offline',
       widgetId: 'services', severity: 'critical', status: 'firing',
-      message: 'Sonarr unreachable — container exited unexpectedly',
+      message: '[Demo] Sonarr unreachable — container exited unexpectedly',
       firedAt: new Date(now - 2 * 60 * 1000).toISOString(),
     },
     {
-      id: 'a2', ruleId: 'r2', ruleName: 'Proxmox latency',
+      id: 'a2', ruleId: 'r2', ruleName: '[Demo] Proxmox latency',
       widgetId: 'services', severity: 'warning', status: 'firing',
-      message: 'Proxmox node latency elevated (180ms, threshold 100ms)',
+      message: '[Demo] Proxmox node latency elevated (180ms, threshold 100ms)',
       firedAt: new Date(now - 8 * 60 * 1000).toISOString(),
     },
     {
-      id: 'a3', ruleId: 'r3', ruleName: 'Disk /data high',
+      id: 'a3', ruleId: 'r3', ruleName: '[Demo] Disk /data high',
       widgetId: 'storage', severity: 'info', status: 'firing',
-      message: 'Disk /data at 78% capacity — consider expanding',
+      message: '[Demo] Disk /data at 78% capacity — consider expanding',
       firedAt: new Date(now - 60 * 60 * 1000).toISOString(),
     },
   ]
