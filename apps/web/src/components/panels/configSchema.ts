@@ -203,6 +203,13 @@ export const NETWORK_SCHEMA: ConfigSchema = {
 export const STORAGE_SCHEMA: ConfigSchema = {
   fields: [
     {
+      key: 'mounts',
+      label: 'Mount points',
+      type: 'tag-list',
+      description: 'Which mount points to display. Leave empty to show all.',
+      placeholder: 'e.g. / or /data',
+    },
+    {
       key: 'showLabels',
       label: 'Show mount path',
       type: 'toggle',

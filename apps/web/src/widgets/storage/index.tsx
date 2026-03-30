@@ -9,6 +9,7 @@ interface StorageMount {
 }
 
 interface StorageConfig {
+  mounts?:     string[]  // if set, only show these mount paths
   showLabels?: boolean
   warnAt?:     number
   criticalAt?: number
@@ -23,6 +24,7 @@ function StorageWidget({ config }: WidgetProps<StorageConfig>) {
   const warnAt     = config?.warnAt     ?? 80
   const criticalAt = config?.criticalAt ?? 90
   const showLabels = config?.showLabels ?? true
+  const mountFilter = config?.mounts?.length ? new Set(config.mounts) : null
 
   const [mounts,  setMounts]  = useState<StorageMount[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,9 +65,11 @@ function StorageWidget({ config }: WidgetProps<StorageConfig>) {
     )
   }
 
+  const visible = mountFilter ? mounts.filter(m => mountFilter.has(m.mount)) : mounts
+
   return (
     <div className="widget-body" style={{ paddingTop: 10, gap: 10, display: 'flex', flexDirection: 'column' }}>
-      {mounts.map(m => {
+      {visible.map(m => {
         const pct = (m.usedGb / m.totalGb) * 100
         const color =
           pct > criticalAt ? 'var(--accent-r)' :
@@ -73,7 +77,7 @@ function StorageWidget({ config }: WidgetProps<StorageConfig>) {
           'var(--accent)'
 
         return (
-          <div key={m.mount}>
+          <div key={m.mount} style={{ flexShrink: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
               <span style={{ fontSize: 12, color: 'var(--text2)' }}>
                 {showLabels ? m.label : m.mount}
