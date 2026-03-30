@@ -207,8 +207,8 @@ export function SidePanel() {
             onClick={e => { e.stopPropagation(); stage === 0 ? setStage(1) : closeAll() }}
             title={stage === 0 ? 'Open menu' : 'Close menu'}
             style={{
-              position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
+              position: 'absolute', top: '50%', right: 0,
+              transform: 'translateY(-50%)',
               width: 18, height: 18,
               background: 'none', border: 'none', padding: 0,
               cursor: 'pointer',
