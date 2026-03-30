@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { isBlockedUrl } from '../lib/ssrf'
+import { isBlockedUrl } from '../lib/ssrf.js'
 
 interface ProxyBody {
   url:      string
