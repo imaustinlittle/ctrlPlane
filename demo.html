@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ctrlPlane – Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+<style>
+/* ── Variables (exact from index.css) ─────────────────────────────────────── */
+:root {
+  --bg:       #0d1117; --bg2: #161b22; --bg3: #1c2128; --bg4: #22272e;
+  --surface:  rgba(255,255,255,0.04); --surface-h: rgba(255,255,255,0.07);
+  --border:   rgba(255,255,255,0.08); --border-b: rgba(255,255,255,0.15);
+  --text:     #e6edf3; --text2: #8b949e; --text3: #484f58;
+  --accent:   #58a6ff; --accent-g: #3fb950; --accent-r: #f78166;
+  --accent-y: #ffa657; --accent-p: #d2a8ff; --radius: 12px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Fixed 1400×900 viewport */
+html, body { width: 1400px; height: 900px; overflow: hidden;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(88,166,255,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(63,185,80,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at 65% 5%,  rgba(210,168,255,0.05) 0%, transparent 45%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── App shell ─────────────────────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; height: 900px; position: relative; z-index: 1; }
+
+/* ── Topbar (exact height 44px) ───────────────────────────────────────────── */
+.topbar {
+  height: 44px; flex-shrink: 0;
+  display: flex; align-items: center;
+  background: rgba(13,17,23,0.9); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px; gap: 0; z-index: 10;
+}
+.tb-logo {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--text);
+  display: flex; align-items: center; gap: 7px;
+  padding-right: 16px; border-right: 1px solid var(--border); margin-right: 8px;
+  flex-shrink: 0;
+}
+.logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(88,166,255,0.6); }
+.tab {
+  height: 44px; padding: 0 14px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text2);
+  border-bottom: 2px solid transparent; cursor: default; white-space: nowrap;
+}
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.save-ok { font-size: 11px; color: var(--accent-g); display: flex; align-items: center; gap: 4px; opacity: 0.8; }
+.alert-btn {
+  position: relative; width: 28px; height: 28px; border-radius: 7px;
+  border: 1px solid var(--border); background: none; cursor: default;
+  display: flex; align-items: center; justify-content: center; color: var(--text2);
+}
+.alert-n {
+  position: absolute; top: -5px; right: -5px;
+  background: var(--accent-r); color: #fff;
+  font-size: 9px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  border-radius: 99px; padding: 1px 4px; min-width: 16px; text-align: center;
+}
+.edit-btn {
+  height: 28px; padding: 0 12px; border-radius: 7px;
+  border: 1px solid var(--border); background: none;
+  color: var(--text2); font-size: 12px; cursor: default;
+  display: flex; align-items: center; gap: 5px; font-family: inherit;
+}
+
+/* ── Body row ──────────────────────────────────────────────────────────────── */
+.body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Side sliver ───────────────────────────────────────────────────────────── */
+.sliver {
+  width: 18px; flex-shrink: 0;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; padding-top: 10px; gap: 5px;
+}
+.sliver-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border-b); }
+
+/* ── Canvas ────────────────────────────────────────────────────────────────── */
+/* rowHeight = floor((900-52)/14) = floor(848/14) = 60px */
+/* 12 rows × 60px + 11 gaps × 10px = 830px; padding 10px top+bottom → 850px ✓ */
+.canvas {
+  flex: 1; padding: 10px 10px 10px 28px;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: 60px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* ── Widget card (exact from index.css) ───────────────────────────────────── */
+.wc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); backdrop-filter: blur(12px);
+  overflow: hidden; display: flex; flex-direction: column; position: relative;
+}
+.wc::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  z-index: 1;
+}
+/* widget-header */
+.wh {
+  display: flex; align-items: center; gap: 5px;
+  padding: 10px 10px 0;
+  flex-shrink: 0;
+}
+/* widget-title */
+.wt {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--text2); min-width: 0; overflow: hidden; white-space: nowrap;
+}
+/* widget-body */
+.wb { flex: 1; padding: 10px 14px 14px; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── Grid placements ───────────────────────────────────────────────────────── */
+/* sysmetrics w=6 h=2 */ .g-sys  { grid-column: 1/7;   grid-row: 1/3;  }
+/* clock      w=3 h=3 */ .g-clk  { grid-column: 7/10;  grid-row: 1/4;  }
+/* weather    w=3 h=4 */ .g-wx   { grid-column: 10/13; grid-row: 1/5;  }
+/* network    w=3 h=5 */ .g-net  { grid-column: 1/4;   grid-row: 3/8;  }
+/* containers w=3 h=5 */ .g-ct   { grid-column: 4/7;   grid-row: 3/8;  }
+/* sonarr     w=3 h=2 */ .g-son  { grid-column: 7/10;  grid-row: 4/6;  }
+/* radarr     w=3 h=2 */ .g-rad  { grid-column: 7/10;  grid-row: 6/8;  }
+/* pihole     w=3 h=4 */ .g-ph   { grid-column: 10/13; grid-row: 5/9;  }
+/* services   w=3 h=5 */ .g-svc  { grid-column: 1/4;   grid-row: 8/13; }
+/* alerts     w=3 h=5 */ .g-alr  { grid-column: 4/7;   grid-row: 8/13; }
+/* sabnzbd    w=3 h=5 */ .g-sab  { grid-column: 7/10;  grid-row: 8/13; }
+/* tautulli   w=3 h=4 */ .g-tau  { grid-column: 10/13; grid-row: 9/13; }
+
+/* ── SysMetrics ────────────────────────────────────────────────────────────── */
+.sys-body { flex-direction: row; align-items: center; padding: 6px 2px; }
+.metric-cell { flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
+.m-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.m-val { font-size: 22px; font-weight: 500; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+.m-sub { font-size: 10px; color: var(--text2); margin-top: 3px; }
+.vdiv { width: 1px; background: var(--border); align-self: stretch; margin: 8px 0; flex-shrink: 0; }
+
+/* ── StatCard (exact from WidgetStatus.tsx) ───────────────────────────────── */
+.stat-row { display: flex; gap: 8px; }
+.sc { flex: 1; background: var(--bg3); border-radius: 8px; padding: 8px 10px; }
+.sc-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; }
+.sc-val { font-weight: 700; line-height: 1; }
+
+/* ── Weather ───────────────────────────────────────────────────────────────── */
+.wx-cur { display: flex; align-items: center; gap: 12px; }
+.wx-temp { font-size: 32px; font-weight: 300; letter-spacing: -2px; line-height: 1; }
+.wx-cond { font-size: 12px; color: var(--text2); margin-top: 3px; }
+.wx-meta { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 11px; color: var(--text2); }
+.wx-div { height: 1px; background: var(--border); margin: 10px 0; flex-shrink: 0; }
+.forecast { display: flex; justify-content: space-between; gap: 4px; }
+.fc-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+
+/* ── Clock ─────────────────────────────────────────────────────────────────── */
+.clk-body { align-items: center; justify-content: center; text-align: center; padding: 8px 12px 14px; gap: 4px; }
+.clk-time { font-family: 'JetBrains Mono', monospace; font-size: 40px; font-weight: 400; letter-spacing: -1.5px; line-height: 1; display: flex; align-items: baseline; }
+.clk-colon { color: var(--accent); padding: 0 2px; }
+.clk-ss { font-size: 0.6em; color: var(--text2); align-self: flex-end; margin-bottom: 0.1em; }
+.clk-date { font-size: 12px; color: var(--text2); }
+.clk-tz { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 4px; justify-content: center; }
+
+/* ── Network ───────────────────────────────────────────────────────────────── */
+.net-body { padding-top: 10px; gap: 0; padding-bottom: 8px; padding-left: 14px; padding-right: 14px; }
+.net-stats { display: flex; gap: 24px; margin-bottom: 10px; }
+.net-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text2); margin-bottom: 2px; }
+.net-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 500; line-height: 1; }
+.net-legend { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.nl-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text2); }
+.nl-line { width: 20px; height: 2px; border-radius: 1px; }
+
+/* ── Containers ─────────────────────────────────────────────────────────────── */
+.ct-sum { display: flex; align-items: center; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text2); }
+.ct-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.ct-name { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-badge { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+.ct-badge.run  { background: rgba(63,185,80,0.12);   color: var(--accent-g); border: 1px solid rgba(63,185,80,0.2); }
+.ct-badge.exit { background: rgba(247,129,102,0.12); color: var(--accent-r); border: 1px solid rgba(247,129,102,0.2); }
+.ct-cpu { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2); min-width: 36px; text-align: right; flex-shrink: 0; }
+.sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sdot.up { background: var(--accent-g); } .sdot.dn { background: var(--accent-r); } .sdot.id { background: var(--text3); }
+
+/* ── Services ───────────────────────────────────────────────────────────────── */
+.svc-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.svc-name { flex: 1; color: var(--text); font-size: 13px; }
+.svc-stat { font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+.svc-ms { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2); min-width: 44px; text-align: right; }
+
+/* ── Alerts ─────────────────────────────────────────────────────────────────── */
+.alr-row { display: flex; gap: 8px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.alr-bar { width: 3px; border-radius: 2px; flex-shrink: 0; align-self: stretch; min-height: 20px; }
+.alr-content { flex: 1; min-width: 0; }
+.alr-title { font-size: 12px; color: var(--text2); line-height: 1.4; }
+.alr-title strong { color: var(--text); font-weight: 500; }
+.alr-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.sev { font-size: 10px; font-family: 'JetBrains Mono', monospace; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+.sev.c { background: rgba(247,129,102,0.08); color: var(--accent-r); border: 1px solid rgba(247,129,102,0.2); }
+.sev.w { background: rgba(255,166,87,0.08);  color: var(--accent-y); border: 1px solid rgba(255,166,87,0.2); }
+.sev.i { background: rgba(88,166,255,0.08);  color: var(--accent);   border: 1px solid rgba(88,166,255,0.2); }
+.alr-time { font-size: 10px; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+.alr-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.alr-btn { font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); background: none; color: var(--text2); cursor: default; }
+
+/* ── Tautulli ────────────────────────────────────────────────────────────────── */
+.tau-streams { font-size: 11px; color: var(--text2); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+.tau-stream-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="tb-logo">
+      <div class="logo-dot"></div>ctrlPlane
+    </div>
+    <div class="tab active">🏠&nbsp; Home</div>
+    <div class="tab">📺&nbsp; Media</div>
+    <div class="tab">🌐&nbsp; Network</div>
+    <div class="tb-right">
+      <div class="save-ok">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Saved
+      </div>
+      <div class="alert-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="alert-n">2</span>
+      </div>
+      <div class="edit-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sliver">
+      <div class="sliver-dot"></div><div class="sliver-dot"></div><div class="sliver-dot"></div>
+    </div>
+
+    <div class="canvas">
+
+      <!-- ── SysMetrics ── -->
+      <div class="wc g-sys">
+        <div class="wh"><div class="wt">⚡ System Stats</div></div>
+        <div class="wb sys-body">
+          <div class="metric-cell">
+            <svg width="44" height="44" viewBox="0 0 44 44" style="flex-shrink:0">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="var(--accent-g)" stroke-width="5"
+                stroke-dasharray="113.1" stroke-dashoffset="65.3" stroke-linecap="round" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div><div class="m-label">CPU</div><div class="m-val" style="color:var(--accent-g)">42%</div><div class="m-sub">8 cores</div></div>
+          </div>
+          <div class="vdiv"></div>
+          <div class="metric-cell">
+            <svg width="44" height="44" viewBox="0 0 44 44" style="flex-shrink:0">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="var(--accent-p)" stroke-width="5"
+                stroke-dasharray="113.1" stroke-dashoffset="37.3" stroke-linecap="round" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div><div class="m-label">Memory</div><div class="m-val" style="color:var(--accent-p)">67%</div><div class="m-sub">10.7 / 16 GB</div></div>
+          </div>
+          <div class="vdiv"></div>
+          <div class="metric-cell">
+            <svg width="44" height="44" viewBox="0 0 44 44" style="flex-shrink:0">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="var(--accent-y)" stroke-width="5"
+                stroke-dasharray="113.1" stroke-dashoffset="56.6" stroke-linecap="round" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div><div class="m-label">Thermals</div><div class="m-val" style="color:var(--accent-y)">51°C</div><div class="m-sub">&nbsp;</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Clock ── -->
+      <div class="wc g-clk">
+        <div class="wh"><div class="wt">🕐 World Clock</div></div>
+        <div class="wb clk-body">
+          <div class="clk-time">
+            <span>09</span><span class="clk-colon">:</span><span>41</span>
+            <span class="clk-colon">:</span><span class="clk-ss">22</span>
+          </div>
+          <div class="clk-date">Monday, March 30, 2026</div>
+          <div class="clk-tz"><span>📍</span><span>Local time</span></div>
+        </div>
+      </div>
+
+      <!-- ── Weather ── -->
+      <div class="wc g-wx">
+        <div class="wh"><div class="wt">🌤 Weather</div></div>
+        <div class="wb" style="padding:10px 14px 12px;justify-content:space-between">
+          <div class="wx-cur">
+            <span style="font-size:40px;line-height:1;flex-shrink:0">⛅</span>
+            <div><div class="wx-temp">74°F</div><div class="wx-cond">Partly Cloudy</div></div>
+            <div class="wx-meta"><span>💧 52%</span><span>💨 9 mph</span><span>📍 Atlanta, GA</span></div>
+          </div>
+          <div class="wx-div"></div>
+          <div class="forecast">
+            <div class="fc-day"><span style="font-size:10px;color:var(--text2);font-weight:500">Mon</span><span style="font-size:16px">🌧</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace">68°</span><span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace">54°</span></div>
+            <div class="fc-day"><span style="font-size:10px;color:var(--text2);font-weight:500">Tue</span><span style="font-size:16px">⛅</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace">72°</span><span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace">58°</span></div>
+            <div class="fc-day"><span style="font-size:10px;color:var(--text2);font-weight:500">Wed</span><span style="font-size:16px">☀️</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace">79°</span><span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace">61°</span></div>
+            <div class="fc-day"><span style="font-size:10px;color:var(--text2);font-weight:500">Thu</span><span style="font-size:16px">☀️</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace">81°</span><span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace">63°</span></div>
+            <div class="fc-day"><span style="font-size:10px;color:var(--text2);font-weight:500">Fri</span><span style="font-size:16px">🌦</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace">71°</span><span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace">57°</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Network ── -->
+      <div class="wc g-net">
+        <div class="wh"><div class="wt">📶 Network</div></div>
+        <div class="wb net-body">
+          <div class="net-stats">
+            <div><div class="net-lbl">↑ Upload</div><div class="net-val" style="color:var(--accent-g)">24 MB/s</div></div>
+            <div><div class="net-lbl">↓ Download</div><div class="net-val" style="color:var(--accent)">112 MB/s</div></div>
+          </div>
+          <div class="net-legend">
+            <div class="nl-item"><div class="nl-line" style="background:rgba(63,185,80,0.9)"></div>Upload</div>
+            <div class="nl-item"><div class="nl-line" style="background:rgba(88,166,255,0.9)"></div>Download</div>
+            <span style="margin-left:auto;font-size:10px;color:var(--text2);opacity:0.6">5m</span>
+          </div>
+          <svg width="100%" style="flex:1;display:block;min-height:52px" viewBox="0 0 280 120" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="gD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(88,166,255,0.3)"/><stop offset="100%" stop-color="rgba(0,0,0,0)"/></linearGradient>
+              <linearGradient id="gU" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(63,185,80,0.2)"/><stop offset="100%" stop-color="rgba(0,0,0,0)"/></linearGradient>
+            </defs>
+            <path d="M0,105 C20,100 35,40 55,32 C75,24 85,55 110,50 C130,46 145,15 165,11 C185,7 200,30 220,26 C240,22 255,45 280,40 L280,120 L0,120 Z" fill="url(#gD)"/>
+            <path d="M0,105 C20,100 35,40 55,32 C75,24 85,55 110,50 C130,46 145,15 165,11 C185,7 200,30 220,26 C240,22 255,45 280,40" fill="none" stroke="rgba(88,166,255,0.9)" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M0,112 C20,110 35,90 55,85 C75,80 85,98 110,94 C130,90 145,78 165,74 C185,70 200,85 220,80 C240,76 255,90 280,86 L280,120 L0,120 Z" fill="url(#gU)"/>
+            <path d="M0,112 C20,110 35,90 55,85 C75,80 85,98 110,94 C130,90 145,78 165,74 C185,70 200,85 220,80 C240,76 255,90 280,86" fill="none" stroke="rgba(63,185,80,0.9)" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- ── Containers ── -->
+      <div class="wc g-ct">
+        <div class="wh"><div class="wt">🐳 Containers</div></div>
+        <div class="wb" style="padding:6px 14px 12px">
+          <div class="ct-sum">
+            <span><span style="color:var(--accent-g);font-weight:600">7</span>/9 running</span>
+            <span style="flex:1"></span>
+            <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text2)">CPU</span>
+          </div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">ctrlplane-api</div><div class="ct-badge run">running</div><div class="ct-cpu">0.4%</div></div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">ctrlplane-web</div><div class="ct-badge run">running</div><div class="ct-cpu">0.1%</div></div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">sonarr</div><div class="ct-badge run">running</div><div class="ct-cpu">1.2%</div></div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">radarr</div><div class="ct-badge run">running</div><div class="ct-cpu">0.8%</div></div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">sabnzbd</div><div class="ct-badge run">running</div><div class="ct-cpu">3.1%</div></div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">pihole</div><div class="ct-badge run">running</div><div class="ct-cpu">0.2%</div></div>
+          <div class="ct-row"><div class="sdot up"></div><div class="ct-name">homeassistant</div><div class="ct-badge run">running</div><div class="ct-cpu">1.8%</div></div>
+          <div class="ct-row"><div class="sdot dn"></div><div class="ct-name" style="color:var(--text2)">plex</div><div class="ct-badge exit">exited</div><div class="ct-cpu">—</div></div>
+        </div>
+      </div>
+
+      <!-- ── Sonarr ── -->
+      <div class="wc g-son">
+        <div class="wh">
+          <div class="wt">
+            <img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg/sonarr.svg" style="width:14px;height:14px;object-fit:contain"/>
+            Sonarr
+          </div>
+        </div>
+        <div class="wb" style="padding:10px 14px;gap:8px">
+          <div class="stat-row">
+            <div class="sc"><div class="sc-label">Series</div><div class="sc-val" style="font-size:20px;color:var(--accent)">84</div></div>
+            <div class="sc"><div class="sc-label">Queue</div><div class="sc-val" style="font-size:20px;color:var(--accent-y)">3</div></div>
+            <div class="sc"><div class="sc-label">Missing</div><div class="sc-val" style="font-size:20px;color:var(--accent-r)">1</div></div>
+          </div>
+          <div style="font-size:10px;color:var(--text2);text-align:right">v4.0.9</div>
+        </div>
+      </div>
+
+      <!-- ── Radarr ── -->
+      <div class="wc g-rad">
+        <div class="wh">
+          <div class="wt">
+            <img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg/radarr.svg" style="width:14px;height:14px;object-fit:contain"/>
+            Radarr
+          </div>
+        </div>
+        <div class="wb" style="padding:10px 14px;gap:8px">
+          <div class="stat-row">
+            <div class="sc"><div class="sc-label">Movies</div><div class="sc-val" style="font-size:20px;color:var(--accent)">312</div></div>
+            <div class="sc"><div class="sc-label">Queue</div><div class="sc-val" style="font-size:20px;color:var(--accent-y)">1</div></div>
+            <div class="sc"><div class="sc-label">Missing</div><div class="sc-val" style="font-size:20px;color:var(--accent-r)">0</div></div>
+          </div>
+          <div style="font-size:10px;color:var(--text2);text-align:right">v5.3.6</div>
+        </div>
+      </div>
+
+      <!-- ── Pi-hole ── -->
+      <div class="wc g-ph">
+        <div class="wh">
+          <div class="wt">
+            <img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg/pi-hole.svg" style="width:14px;height:14px;object-fit:contain"/>
+            Pi-hole
+          </div>
+        </div>
+        <div class="wb" style="padding:12px 14px;gap:10px">
+          <div class="stat-row">
+            <div class="sc"><div class="sc-label">Queries Today</div><div class="sc-val" style="font-size:16px">48,291</div></div>
+            <div class="sc"><div class="sc-label">Blocked</div><div class="sc-val" style="font-size:16px;color:var(--accent-r)">9,104</div></div>
+          </div>
+          <div class="stat-row">
+            <div class="sc"><div class="sc-label">Block Rate</div><div class="sc-val" style="font-size:16px;color:var(--accent-y)">18.9%</div></div>
+            <div class="sc"><div class="sc-label">Domains Blocked</div><div class="sc-val" style="font-size:14px">1,782,436</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Services ── -->
+      <div class="wc g-svc">
+        <div class="wh"><div class="wt">📡 Service Status</div></div>
+        <div class="wb" style="padding:8px 14px 12px;overflow-y:hidden">
+          <div class="svc-row"><span style="font-size:14px">🎬</span><span class="svc-name">Plex</span><span class="svc-stat" style="color:var(--accent-g)">online</span><span class="svc-ms">22ms</span></div>
+          <div class="svc-row"><span style="font-size:14px">📺</span><span class="svc-name">Sonarr</span><span class="svc-stat" style="color:var(--accent-g)">online</span><span class="svc-ms">18ms</span></div>
+          <div class="svc-row"><span style="font-size:14px">🎞</span><span class="svc-name">Radarr</span><span class="svc-stat" style="color:var(--accent-g)">online</span><span class="svc-ms">21ms</span></div>
+          <div class="svc-row"><span style="font-size:14px">📥</span><span class="svc-name">SABnzbd</span><span class="svc-stat" style="color:var(--accent-g)">online</span><span class="svc-ms">9ms</span></div>
+          <div class="svc-row"><span style="font-size:14px">🏠</span><span class="svc-name">Home Assistant</span><span class="svc-stat" style="color:var(--accent-g)">online</span><span class="svc-ms">14ms</span></div>
+          <div class="svc-row"><span style="font-size:14px">🌀</span><span class="svc-name">NAS (Synology)</span><span class="svc-stat" style="color:var(--accent-y)">degraded</span><span class="svc-ms">340ms</span></div>
+          <div class="svc-row"><span style="font-size:14px">🔒</span><span class="svc-name">Vaultwarden</span><span class="svc-stat" style="color:var(--accent-g)">online</span><span class="svc-ms">11ms</span></div>
+        </div>
+      </div>
+
+      <!-- ── Alerts ── -->
+      <div class="wc g-alr">
+        <div class="wh"><div class="wt">🔔 Alert Center</div></div>
+        <div class="wb" style="padding:8px 14px 12px;overflow-y:hidden">
+          <div class="alr-row">
+            <div class="alr-bar" style="background:var(--accent-r)"></div>
+            <div class="alr-content">
+              <div class="alr-title"><strong>High Memory Usage</strong> — 89% used</div>
+              <div class="alr-meta"><span class="sev c">critical</span><span class="alr-time">3 min ago</span></div>
+            </div>
+            <div class="alr-btns"><div class="alr-btn">✓</div><div class="alr-btn">✕</div></div>
+          </div>
+          <div class="alr-row">
+            <div class="alr-bar" style="background:var(--accent-y)"></div>
+            <div class="alr-content">
+              <div class="alr-title"><strong>CPU Spike</strong> — cpu.usage > 80</div>
+              <div class="alr-meta"><span class="sev w">warning</span><span class="alr-time">11 min ago</span></div>
+            </div>
+            <div class="alr-btns"><div class="alr-btn">✓</div><div class="alr-btn">✕</div></div>
+          </div>
+          <div class="alr-row" style="opacity:0.5">
+            <div class="alr-bar" style="background:var(--accent)"></div>
+            <div class="alr-content">
+              <div class="alr-title"><strong>Disk Space</strong> — / at 76%</div>
+              <div class="alr-meta"><span class="sev i">info</span><span class="alr-time">2 hrs ago</span></div>
+            </div>
+            <div class="alr-btns"><div class="alr-btn">✕</div></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--text2);font-size:12px;padding:16px 0;opacity:0.45">
+            <span style="font-size:18px">✓</span> No other active alerts
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SABnzbd ── -->
+      <div class="wc g-sab">
+        <div class="wh">
+          <div class="wt">
+            <img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg/sabnzbd.svg" style="width:14px;height:14px;object-fit:contain"/>
+            SABnzbd
+          </div>
+        </div>
+        <div class="wb" style="padding:12px 14px;gap:10px">
+          <div class="stat-row">
+            <div class="sc"><div class="sc-label">Speed</div><div class="sc-val" style="font-size:15px;color:var(--accent)">45 MB/s</div></div>
+            <div class="sc"><div class="sc-label">Remaining</div><div class="sc-val" style="font-size:15px">12.3 GB</div></div>
+            <div class="sc"><div class="sc-label">Items</div><div class="sc-val" style="font-size:15px">4</div></div>
+          </div>
+          <div style="height:1px;background:var(--border);margin:2px 0;flex-shrink:0"></div>
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Queue</div>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px"><div style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Severance.S02E08.2160p</div><div style="font-size:10px;color:var(--accent-y);font-family:'JetBrains Mono',monospace">4.2 GB</div></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px"><div style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">The.Studio.S01E06.2160p</div><div style="font-size:10px;color:var(--accent-y);font-family:'JetBrains Mono',monospace">3.8 GB</div></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px"><div style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">White.Lotus.S03E09.2160p</div><div style="font-size:10px;color:var(--accent-y);font-family:'JetBrains Mono',monospace">4.9 GB</div></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px"><div style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Andor.S02E01.2160p</div><div style="font-size:10px;color:var(--accent-y);font-family:'JetBrains Mono',monospace">5.1 GB</div></div>
+        </div>
+      </div>
+
+      <!-- ── Tautulli ── -->
+      <div class="wc g-tau">
+        <div class="wh">
+          <div class="wt">
+            <img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg/tautulli.svg" style="width:14px;height:14px;object-fit:contain"/>
+            Tautulli
+          </div>
+        </div>
+        <div class="wb" style="padding:10px 14px;gap:8px">
+          <div class="stat-row">
+            <div class="sc"><div class="sc-label">Streams</div><div class="sc-val" style="font-size:22px;color:var(--accent)">3</div></div>
+            <div class="sc"><div class="sc-label">Transcode</div><div class="sc-val" style="font-size:22px;color:var(--accent-y)">1</div></div>
+            <div class="sc"><div class="sc-label">Direct Play</div><div class="sc-val" style="font-size:22px;color:var(--accent-g)">2</div></div>
+          </div>
+          <div style="height:1px;background:var(--border);margin:2px 0;flex-shrink:0"></div>
+          <div class="tau-stream-row"><span style="font-size:13px">🎬</span><span style="flex:1;color:var(--text);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Severance · S02E07</span><span style="font-size:10px;color:var(--accent-g);font-family:'JetBrains Mono',monospace">▶ direct</span></div>
+          <div class="tau-stream-row"><span style="font-size:13px">🎬</span><span style="flex:1;color:var(--text);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">The Studio · S01E05</span><span style="font-size:10px;color:var(--accent-y);font-family:'JetBrains Mono',monospace">⚙ transcode</span></div>
+          <div class="tau-stream-row"><span style="font-size:13px">🎵</span><span style="flex:1;color:var(--text);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Music · Vampire Weekend</span><span style="font-size:10px;color:var(--accent-g);font-family:'JetBrains Mono',monospace">▶ direct</span></div>
+        </div>
+      </div>
+
+    </div><!-- /canvas -->
+  </div><!-- /body -->
+</div><!-- /app -->
+</body>
+</html>
