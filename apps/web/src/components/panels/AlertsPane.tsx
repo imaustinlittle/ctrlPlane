@@ -325,16 +325,20 @@ export function AlertsPane() {
   useEffect(() => { loadRules(); loadIntegrations() }, [])
 
   const handleToggle = async (rule: AlertRule) => {
-    await fetch(`/api/alerts/rules/${rule.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: !rule.enabled }),
-    })
+    try {
+      await fetch(`/api/alerts/rules/${rule.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !rule.enabled }),
+      })
+    } catch { /* best-effort */ }
     loadRules()
   }
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/alerts/rules/${id}`, { method: 'DELETE' })
+    try {
+      await fetch(`/api/alerts/rules/${id}`, { method: 'DELETE' })
+    } catch { /* best-effort */ }
     loadRules()
   }
 

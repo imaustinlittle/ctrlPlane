@@ -330,7 +330,7 @@ export async function unscheduleIntegration(integrationId: string): Promise<void
 
 async function bootstrap(): Promise<void> {
   console.log('🔧  ctrlPlane worker starting...')
-  console.log('   Redis:', ENV.REDIS_URL)
+  console.log('   Redis:', ENV.REDIS_URL ? '[set]' : '[not set]')
   console.log('   DB:   ', ENV.DATABASE_URL ? '[set]' : '[not set]')
 
   await loadIntegrationRegistry()

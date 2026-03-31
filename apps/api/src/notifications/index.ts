@@ -3,6 +3,7 @@
  * Supports: Discord webhook, ntfy, generic webhook.
  * Never throws — returns { ok, error } so callers can log and continue.
  */
+import { isBlockedUrl } from '../lib/ssrf.js'
 
 export interface NotificationChannel {
   id:         string
@@ -54,6 +55,7 @@ async function sendDiscord(
 ): Promise<SendResult> {
   const webhookUrl = config.webhookUrl as string
   if (!webhookUrl) return { ok: false, error: 'discord: missing webhookUrl' }
+  if (isBlockedUrl(webhookUrl)) return { ok: false, error: 'discord: blocked URL' }
 
   const res = await fetch(webhookUrl, {
     method:  'POST',
@@ -86,6 +88,7 @@ async function sendNtfy(
   const topic   = config.topic as string
   const server  = (config.server as string | undefined) ?? 'https://ntfy.sh'
   if (!topic) return { ok: false, error: 'ntfy: missing topic' }
+  if (isBlockedUrl(`${server}/${topic}`)) return { ok: false, error: 'ntfy: blocked URL' }
 
   const res = await fetch(`${server}/${topic}`, {
     method:  'POST',
@@ -114,6 +117,7 @@ async function sendWebhook(
 ): Promise<SendResult> {
   const url = config.url as string
   if (!url) return { ok: false, error: 'webhook: missing url' }
+  if (isBlockedUrl(url)) return { ok: false, error: 'webhook: blocked URL' }
 
   const res = await fetch(url, {
     method:  'POST',
